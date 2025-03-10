@@ -318,7 +318,7 @@ namespace ASPForEnhance
             {
                 // Create and upload the service file asynchronously
                 UpdateStatus($"Creating website {form.WebsiteInfo.Name}...");
-                sshHelper.CreateWebsiteAsync(form.WebsiteInfo, form.DllName, form.FolderPath, form.EnableBlazorSignalR, passwordTextBox.Text);
+                sshHelper.CreateWebsiteAsync(form.WebsiteInfo, form.DllFileName, form.FolderPath, form.EnableBlazorSignalR, passwordTextBox.Text);
                 
                 // Disable the add website button during creation
                 addWebsiteButton.Enabled = false;

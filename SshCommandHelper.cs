@@ -113,7 +113,7 @@ namespace ASPForEnhance
         }
 
         // New method for creating websites asynchronously
-        public void CreateWebsiteAsync(WebsiteInfo websiteInfo, string aspDllPath, string folderPath, bool enableBlazorSignalR, string password)
+        public void CreateWebsiteAsync(WebsiteInfo websiteInfo, string dllFileName, string folderPath, bool enableBlazorSignalR, string password)
         {
             if (!IsConnected)
             {
@@ -131,7 +131,7 @@ namespace ASPForEnhance
             var parameters = new WebsiteCreationParameters
             {
                 WebsiteInfo = websiteInfo,
-                AspDllPath = aspDllPath,
+                DllFileName = dllFileName,
                 FolderPath = folderPath,
                 EnableBlazorSignalR = enableBlazorSignalR,
                 Password = password
@@ -457,7 +457,7 @@ namespace ASPForEnhance
             try
             {
                 // Format the service file content based on the template
-                string serviceFileContent = GenerateServiceFileContent(parameters.WebsiteInfo, parameters.AspDllPath, parameters.FolderPath);
+                string serviceFileContent = GenerateServiceFileContent(parameters.WebsiteInfo, parameters.DllFileName, parameters.FolderPath);
                 
                 // Get the service file name
                 string serviceFileName = parameters.WebsiteInfo.FileName;
@@ -969,19 +969,18 @@ namespace ASPForEnhance
         }
 
         // Methods to generate service file and Apache config - moved from MainForm.cs
-        private string GenerateServiceFileContent(WebsiteInfo websiteInfo, string aspDllPath, string folderPath)
+        private string GenerateServiceFileContent(WebsiteInfo websiteInfo, string dllFileName, string folderPath)
         {
             // Extract the working directory (folder path) from the DLL path
             string workingDirectory = $"/var/www/{websiteInfo.Id}/{folderPath}";
             
-            // Extract the DLL filename
-            string dllFilename = Path.GetFileName(aspDllPath);
+
             
             // Format the service file content based on the template
             return $"""
                     [Service]
                     WorkingDirectory={workingDirectory}
-                    ExecStart=/usr/bin/dotnet {workingDirectory}/{dllFilename}
+                    ExecStart=/usr/bin/dotnet {workingDirectory}/{dllFileName}
                     Restart=always
                     # Restart service after 10 seconds if the dotnet service crashes:
                     RestartSec=10
@@ -1045,7 +1044,7 @@ namespace ASPForEnhance
         private class WebsiteCreationParameters
         {
             public WebsiteInfo WebsiteInfo { get; set; } = new WebsiteInfo();
-            public string AspDllPath { get; set; } = string.Empty;
+            public string DllFileName { get; set; } = string.Empty;
             public string FolderPath { get; set; } = string.Empty;
             public bool EnableBlazorSignalR { get; set; }
 

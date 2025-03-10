@@ -6,7 +6,7 @@ namespace ASPForEnhance
     public partial class WebsiteForm : Form
     {
         public WebsiteInfo WebsiteInfo { get; private set; }
-        public string DllName { get; private set; }
+        public string DllFileName { get; private set; }
         public string FolderPath { get; private set; }
         public bool EnableBlazorSignalR { get; private set; }
         private string? ServerIp { get; set; }
@@ -18,7 +18,7 @@ namespace ASPForEnhance
             ServerIp = serverIp;
             NextPort = nextPort;
             WebsiteInfo = new WebsiteInfo();
-            DllName = string.Empty;
+            DllFileName = string.Empty;
             FolderPath = "";
             EnableBlazorSignalR = false;
             Text = "Add Website";
@@ -40,7 +40,7 @@ namespace ASPForEnhance
             {
                 WebsiteInfo.Id = match.Groups["id"].Value;
                 FolderPath = match.Groups["folderPath"].Value;
-                DllName = match.Groups["dllName"].Value;
+                DllFileName = match.Groups["dllName"].Value;
                 return true;
             }
             else
