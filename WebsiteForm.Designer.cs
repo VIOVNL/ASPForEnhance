@@ -18,44 +18,34 @@ namespace ASPForEnhance
         private void InitializeComponent()
         {
             nameTextBox = new TextBox();
-            idTextBox = new TextBox();
-            aspDllPathTextBox = new TextBox();
+            fullPathTextBox = new TextBox();
             saveButton = new Button();
             cancelButton = new Button();
             label1 = new Label();
-            label2 = new Label();
             label3 = new Label();
             portInfoLabel = new Label();
-            generateIdButton = new Button();
             blazorSignalRCheckBox = new CheckBox();
-            folderPathTextBox = new TextBox();
-            label4 = new Label();
             SuspendLayout();
             // 
             // nameTextBox
             // 
-            nameTextBox.Location = new Point(150, 20);
+            nameTextBox.Location = new Point(178, 20);
             nameTextBox.Name = "nameTextBox";
-            nameTextBox.Size = new Size(300, 31);
+            nameTextBox.PlaceholderText = "website.com";
+            nameTextBox.Size = new Size(695, 31);
             nameTextBox.TabIndex = 0;
             // 
-            // idTextBox
+            // fullPathTextBox
             // 
-            idTextBox.Location = new Point(150, 60);
-            idTextBox.Name = "idTextBox";
-            idTextBox.Size = new Size(300, 31);
-            idTextBox.TabIndex = 1;
-            // 
-            // aspDllPathTextBox
-            // 
-            aspDllPathTextBox.Location = new Point(150, 100);
-            aspDllPathTextBox.Name = "aspDllPathTextBox";
-            aspDllPathTextBox.Size = new Size(300, 31);
-            aspDllPathTextBox.TabIndex = 2;
+            fullPathTextBox.Location = new Point(178, 69);
+            fullPathTextBox.Name = "fullPathTextBox";
+            fullPathTextBox.PlaceholderText = "/var/www/677c5d2b-d623-450a-81c5-ad3dee239df4/public_html/AspProject.dll";
+            fullPathTextBox.Size = new Size(695, 31);
+            fullPathTextBox.TabIndex = 2;
             // 
             // saveButton
             // 
-            saveButton.Location = new Point(150, 245);
+            saveButton.Location = new Point(761, 175);
             saveButton.Name = "saveButton";
             saveButton.Size = new Size(112, 34);
             saveButton.TabIndex = 6;
@@ -65,7 +55,7 @@ namespace ASPForEnhance
             // 
             // cancelButton
             // 
-            cancelButton.Location = new Point(280, 245);
+            cancelButton.Location = new Point(643, 175);
             cancelButton.Name = "cancelButton";
             cancelButton.Size = new Size(112, 34);
             cancelButton.TabIndex = 7;
@@ -78,73 +68,37 @@ namespace ASPForEnhance
             label1.AutoSize = true;
             label1.Location = new Point(20, 20);
             label1.Name = "label1";
-            label1.Size = new Size(129, 25);
+            label1.Size = new Size(131, 25);
             label1.TabIndex = 8;
-            label1.Text = "Website Name:";
-            // 
-            // label2
-            // 
-            label2.AutoSize = true;
-            label2.Location = new Point(20, 60);
-            label2.Name = "label2";
-            label2.Size = new Size(104, 25);
-            label2.TabIndex = 9;
-            label2.Text = "Website ID:";
+            label1.Text = "Domain Name:";
             // 
             // label3
             // 
             label3.AutoSize = true;
-            label3.Location = new Point(20, 100);
+            label3.Location = new Point(20, 69);
             label3.Name = "label3";
-            label3.Size = new Size(117, 25);
+            label3.Size = new Size(84, 25);
             label3.TabIndex = 10;
-            label3.Text = "ASP DLL Path:";
+            label3.Text = "Full path:";
             // 
             // portInfoLabel
             // 
             portInfoLabel.AutoSize = true;
-            portInfoLabel.Location = new Point(150, 180);
+            portInfoLabel.Location = new Point(178, 147);
             portInfoLabel.Name = "portInfoLabel";
-            portInfoLabel.Size = new Size(172, 25);
+            portInfoLabel.Size = new Size(179, 25);
             portInfoLabel.TabIndex = 11;
             portInfoLabel.Text = "Port: (Auto-assigned)";
-            // 
-            // generateIdButton
-            // 
-            generateIdButton.Location = new Point(460, 60);
-            generateIdButton.Name = "generateIdButton";
-            generateIdButton.Size = new Size(112, 34);
-            generateIdButton.TabIndex = 3;
-            generateIdButton.Text = "Generate";
-            generateIdButton.UseVisualStyleBackColor = true;
-            generateIdButton.Click += GenerateIdButton_Click;
             // 
             // blazorSignalRCheckBox
             // 
             blazorSignalRCheckBox.AutoSize = true;
-            blazorSignalRCheckBox.Location = new Point(150, 210);
+            blazorSignalRCheckBox.Location = new Point(178, 106);
             blazorSignalRCheckBox.Name = "blazorSignalRCheckBox";
-            blazorSignalRCheckBox.Size = new Size(210, 29);
+            blazorSignalRCheckBox.Size = new Size(209, 29);
             blazorSignalRCheckBox.TabIndex = 5;
             blazorSignalRCheckBox.Text = "Enable Blazor/SignalR";
             blazorSignalRCheckBox.UseVisualStyleBackColor = true;
-            // 
-            // folderPathTextBox
-            // 
-            folderPathTextBox.Location = new Point(150, 140);
-            folderPathTextBox.Name = "folderPathTextBox";
-            folderPathTextBox.Size = new Size(300, 31);
-            folderPathTextBox.TabIndex = 4;
-            folderPathTextBox.Text = "api";
-            // 
-            // label4
-            // 
-            label4.AutoSize = true;
-            label4.Location = new Point(20, 140);
-            label4.Name = "label4";
-            label4.Size = new Size(105, 25);
-            label4.TabIndex = 12;
-            label4.Text = "Folder Path:";
             // 
             // WebsiteForm
             // 
@@ -152,19 +106,14 @@ namespace ASPForEnhance
             AutoScaleDimensions = new SizeF(10F, 25F);
             AutoScaleMode = AutoScaleMode.Font;
             CancelButton = cancelButton;
-            ClientSize = new Size(588, 294);
-            Controls.Add(label4);
-            Controls.Add(folderPathTextBox);
+            ClientSize = new Size(893, 227);
             Controls.Add(blazorSignalRCheckBox);
-            Controls.Add(generateIdButton);
             Controls.Add(portInfoLabel);
             Controls.Add(label3);
-            Controls.Add(label2);
             Controls.Add(label1);
             Controls.Add(cancelButton);
             Controls.Add(saveButton);
-            Controls.Add(aspDllPathTextBox);
-            Controls.Add(idTextBox);
+            Controls.Add(fullPathTextBox);
             Controls.Add(nameTextBox);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
@@ -179,17 +128,12 @@ namespace ASPForEnhance
         #endregion
 
         private TextBox nameTextBox;
-        private TextBox idTextBox;
-        private TextBox aspDllPathTextBox;
+        private TextBox fullPathTextBox;
         private Button saveButton;
         private Button cancelButton;
         private Label label1;
-        private Label label2;
         private Label label3;
         private Label portInfoLabel;
-        private Button generateIdButton;
         private CheckBox blazorSignalRCheckBox;
-        private TextBox folderPathTextBox;
-        private Label label4;
     }
 }

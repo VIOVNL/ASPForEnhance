@@ -1,4 +1,5 @@
 using Renci.SshNet;
+using System.Data;
 
 namespace ASPForEnhance
 {
@@ -23,6 +24,10 @@ namespace ASPForEnhance
             sshHelper.ServiceStatusReceived += SshHelper_ServiceStatusReceived;
             sshHelper.ServiceOperationCompleted += SshHelper_ServiceOperationCompleted;
             sshHelper.ServiceLogsReceived += SshHelper_ServiceLogsReceived;
+
+            // Set DataGridView properties
+            websitesDataGridView.ReadOnly = true;
+            websitesDataGridView.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
         }
 
         private void MainForm_Load(object sender, EventArgs e)
@@ -31,7 +36,7 @@ namespace ASPForEnhance
             RefreshServersList();
             UpdateServerButtonStates();
             UpdateStatus("Ready");
-            
+            this.Height = 172;
             // Initial state of the add website button (disabled until connected)
             addWebsiteButton.Enabled = false;
         }
@@ -66,26 +71,33 @@ namespace ASPForEnhance
         {
             if (e.Success)
             {
-                // Update UI to show connected state
-                LoginButton.Text = "Disconnect";
-                serversComboBox.Enabled = false;
-                serverIpTextBox.Enabled = false;
-                usernameTextBox.Enabled = false;
-                passwordTextBox.Enabled = false;
-                addServerButton.Enabled = false;
-                editServerButton.Enabled = false;
-                deleteServerButton.Enabled = false;
-                addWebsiteButton.Enabled = true; // Enable website addition when connected
+                if (e.Hostname != null)
+                {
+                    // Update UI to show connected state
+                    LoginButton.Text = "Disconnect";
+                    serversComboBox.Enabled = false;
+                    serverIpTextBox.Enabled = false;
+                    usernameTextBox.Enabled = false;
+                    passwordTextBox.Enabled = false;
+                    addServerButton.Enabled = false;
+                    editServerButton.Enabled = false;
+                    deleteServerButton.Enabled = false;
+                    this.Height = 1046;
+                    addWebsiteButton.Enabled = true; // Enable website addition when connected
 
-                // Start discovering websites
-                GetWebsites();
+                    // Start discovering websites
+                    GetWebsites();
+                }
+                else
+                {
+                    UpdateStatus("Disconnected");
+                    UpdateUIForDisconnectedState();
+                }
+              
             }
             else
             {
-                MessageBox.Show("Failed to connect: " + e.Error, "Connection Error", 
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
-                
-                // Make sure UI is in disconnected state
+                UpdateStatus("Failed to connect");
                 UpdateUIForDisconnectedState();
             }
         }
@@ -155,15 +167,9 @@ namespace ASPForEnhance
             int selectedIndex = serversComboBox.SelectedIndex;
             if (selectedIndex >= 0 && serversComboBox.SelectedItem is ServerInfo serverInfo)
             {
-                var result = MessageBox.Show($"Are you sure you want to delete the server '{serverInfo.Name}'?", 
-                    "Confirm Delete", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-                
-                if (result == DialogResult.Yes)
-                {
-                    serverManager.DeleteServer(selectedIndex);
-                    RefreshServersList();
-                    UpdateServerButtonStates();
-                }
+                serverManager.DeleteServer(selectedIndex);
+                RefreshServersList();
+                UpdateServerButtonStates();
             }
         }
 
@@ -177,9 +183,12 @@ namespace ASPForEnhance
             {
                 // Use the new asynchronous disconnect method
                 sshHelper.DisconnectAsync();
+                statusLabel.Visible = false;
                 return;
             }
 
+       
+            statusLabel.Visible = true;
             // Get connection info from textboxes
             string serverIp = serverIpTextBox.Text.Trim();
             string username = usernameTextBox.Text.Trim();
@@ -202,8 +211,7 @@ namespace ASPForEnhance
         {
             if (!sshHelper.IsConnected)
             {
-                MessageBox.Show("Not connected to the server. Please log in first.", "Connection Error", 
-                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+              
                 return;
             }
             
@@ -219,7 +227,7 @@ namespace ASPForEnhance
             if (sshHelper.IsConnected)
             {
                 // Use the synchronous disconnect for form closing
-                sshHelper.Disconnect();
+                sshHelper.DisconnectAsync();
                 UpdateUIForDisconnectedState();
             }
         }
@@ -235,6 +243,7 @@ namespace ASPForEnhance
             passwordTextBox.Enabled = true;
             addServerButton.Enabled = true;
             addWebsiteButton.Enabled = false; // Disable website addition when disconnected
+            this.Height = 162;
             UpdateServerButtonStates();
                 
             websitesDataGridView.DataSource = null;
@@ -264,8 +273,7 @@ namespace ASPForEnhance
         {
             if (!e.Success)
             {
-                MessageBox.Show($"Failed to discover websites: {e.Error}", "Error", 
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+              
                 UpdateStatus($"Error: {e.Error}");
                 return;
             }
@@ -273,8 +281,6 @@ namespace ASPForEnhance
             if (e.Websites == null || e.Websites.Count == 0)
             {
                 UpdateStatus("No websites found");
-                MessageBox.Show("No websites were found with ASPForEnhance metadata.", 
-                    "No Websites Found", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 currentWebsites.Clear();
                 return;
             }
@@ -296,8 +302,7 @@ namespace ASPForEnhance
         {
             if (!sshHelper.IsConnected)
             {
-                MessageBox.Show("Please connect to a server first.", "Not Connected", 
-                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                UpdateStatus("Please connect to a server first.");
                 return;
             }
 
@@ -313,7 +318,7 @@ namespace ASPForEnhance
             {
                 // Create and upload the service file asynchronously
                 UpdateStatus($"Creating website {form.WebsiteInfo.Name}...");
-                sshHelper.CreateWebsiteAsync(form.WebsiteInfo, form.AspDllPath, form.FolderPath, form.EnableBlazorSignalR, passwordTextBox.Text);
+                sshHelper.CreateWebsiteAsync(form.WebsiteInfo, form.DllName, form.FolderPath, form.EnableBlazorSignalR, passwordTextBox.Text);
                 
                 // Disable the add website button during creation
                 addWebsiteButton.Enabled = false;
@@ -428,9 +433,7 @@ namespace ASPForEnhance
             
             if (!e.Success)
             {
-                MessageBox.Show($"Failed to get service status: {e.Error}", "Error", 
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
-                UpdateStatus($"Error: {e.Error}");
+                UpdateStatus($"Failed to get service status");
                 return;
             }
             
@@ -455,9 +458,7 @@ namespace ASPForEnhance
             // Save the current service name
             if (e.Status != null)
                 currentServiceName = e.Status.ServiceName;
-                
-            // Update the status in the data grid view
-            UpdateWebsiteServiceStatus(e.Status);
+
             
             UpdateStatus($"Service status retrieved: {e.Status?.State}");
         }
@@ -516,7 +517,10 @@ namespace ASPForEnhance
             // Display logs
             logsTextBox.Clear();
             logsTextBox.Text = e.Logs;
-            
+            // Scroll to the end of the logs
+            logsTextBox.SelectionStart = logsTextBox.Text.Length;
+            logsTextBox.ScrollToCaret();
+            logsTextBox.Focus();
             UpdateStatus($"Service logs retrieved for {currentServiceName}");
         }
         
@@ -759,34 +763,6 @@ namespace ASPForEnhance
             }
         }
         
-        private void UpdateWebsiteServiceStatus(ServiceStatus? status)
-        {
-            if (status == null) return;
-            
-            // Find the row with the matching service name
-            for (int i = 0; i < websitesDataGridView.Rows.Count; i++)
-            {
-                var row = websitesDataGridView.Rows[i];
-                string? fileName = row.Cells[4].Value?.ToString();
-                
-                if (fileName == status.ServiceName)
-                {
-                    // Update the Status cell
-                    row.Cells[5].Value = status.State;
-                    
-                    // Add color based on status
-                    if (status.State.Contains("running"))
-                        row.Cells[5].Style.ForeColor = Color.Green;
-                    else if (status.State.Contains("stopped") || status.State.Contains("inactive"))
-                        row.Cells[5].Style.ForeColor = Color.Red;
-                    else if (status.State.Contains("failed"))
-                        row.Cells[5].Style.ForeColor = Color.Orange;
-                    else
-                        row.Cells[5].Style.ForeColor = Color.Gray;
-                        
-                    break;
-                }
-            }
-        }
+     
     }
 }

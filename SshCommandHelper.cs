@@ -38,29 +38,6 @@ namespace ASPForEnhance
             worker.RunWorkerCompleted += Worker_RunWorkerCompleted;
             worker.WorkerSupportsCancellation = true;
         }
-
-        public void Connect(string hostname, string username, string password, int port = 22)
-        {
-            if (IsConnected)
-            {
-                Disconnect();
-            }
-
-            try
-            {
-                RaiseConnectionStatusChanged("Connecting...");
-                sshClient = new SshClient(hostname, port, username, password);
-                sshClient.Connect();
-                RaiseConnectionStatusChanged($"Connected to {hostname}");
-            }
-            catch (Exception ex)
-            {
-                sshClient = null;
-                RaiseConnectionStatusChanged($"Connection failed: {ex.Message}");
-                throw;
-            }
-        }
-
         // New method for connecting in the background
         public void ConnectAsync(string hostname, string username, string password, int port = 22)
         {
@@ -86,28 +63,7 @@ namespace ASPForEnhance
             worker.RunWorkerAsync(parameters);
         }
 
-        public void Disconnect()
-        {
-            if (sshClient != null && sshClient.IsConnected)
-            {
-                RaiseConnectionStatusChanged("Disconnecting...");
-                
-                try
-                {
-                    sshClient.Disconnect();
-                }
-                catch (Exception ex)
-                {
-                    RaiseConnectionStatusChanged($"Disconnect error: {ex.Message}");
-                }
-                finally
-                {
-                    sshClient.Dispose();
-                    sshClient = null;
-                    RaiseConnectionStatusChanged("Disconnected");
-                }
-            }
-        }
+  
 
         // New method for disconnecting in the background
         public void DisconnectAsync()
@@ -136,30 +92,6 @@ namespace ASPForEnhance
             worker.RunWorkerAsync(parameters);
         }
 
-        public void ExecuteCommand(string command, string workingDirectory = null)
-        {
-            if (!IsConnected)
-            {
-                RaiseCommandCompleted(false, "Not connected to SSH server", null);
-                return;
-            }
-
-            if (worker.IsBusy)
-            {
-                RaiseCommandCompleted(false, "A command is already running", null);
-                return;
-            }
-
-            // Create command parameters
-            var parameters = new CommandParameters
-            {
-                Command = command,
-                WorkingDirectory = workingDirectory
-            };
-
-            // Start the background worker
-            worker.RunWorkerAsync(parameters);
-        }
 
         // New method to discover websites from systemd service files
         public void DiscoverWebsites()
@@ -345,7 +277,12 @@ namespace ASPForEnhance
                 e.Result = ProcessWebsiteCreationOperation(websiteParams);
                 return;
             }
-            
+            // Check if this is a service log operation
+            if (e.Argument is ServiceLogParameters logParams)
+            {
+                e.Result = ProcessServiceLogOperation(logParams);
+                return;
+            }
             // Check if this is a service operation
             if (e.Argument is ServiceOperationParameters serviceParams)
             {
@@ -353,12 +290,7 @@ namespace ASPForEnhance
                 return;
             }
             
-            // Check if this is a service log operation
-            if (e.Argument is ServiceLogParameters logParams)
-            {
-                e.Result = ProcessServiceLogOperation(logParams);
-                return;
-            }
+          
             
             if (e.Argument is not CommandParameters parameters || sshClient == null)
             {

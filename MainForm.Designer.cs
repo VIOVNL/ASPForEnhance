@@ -47,7 +47,6 @@
             tabControl = new TabControl();
             websitesTab = new TabPage();
             websitesDataGridView = new DataGridView();
-            statusColumn = new DataGridViewTextBoxColumn();
             websiteContextMenu = new ContextMenuStrip(components);
             getStatusMenuItem = new ToolStripMenuItem();
             restartServiceMenuItem = new ToolStripMenuItem();
@@ -112,15 +111,15 @@
             connectionPanel.Margin = new Padding(3, 4, 3, 4);
             connectionPanel.Name = "connectionPanel";
             connectionPanel.Padding = new Padding(6);
-            connectionPanel.Size = new Size(1234, 150);
+            connectionPanel.Size = new Size(1427, 115);
             connectionPanel.TabIndex = 0;
             // 
             // addWebsiteButton
             // 
             addWebsiteButton.Enabled = false;
-            addWebsiteButton.Location = new Point(1073, 12);
+            addWebsiteButton.Location = new Point(1240, 25);
             addWebsiteButton.Name = "addWebsiteButton";
-            addWebsiteButton.Size = new Size(149, 33);
+            addWebsiteButton.Size = new Size(165, 55);
             addWebsiteButton.TabIndex = 0;
             addWebsiteButton.Text = "Add Website";
             addWebsiteButton.UseVisualStyleBackColor = true;
@@ -128,9 +127,9 @@
             // 
             // LoginButton
             // 
-            LoginButton.Location = new Point(1053, 91);
+            LoginButton.Location = new Point(1052, 65);
             LoginButton.Name = "LoginButton";
-            LoginButton.Size = new Size(87, 33);
+            LoginButton.Size = new Size(169, 33);
             LoginButton.TabIndex = 0;
             LoginButton.Text = "Login";
             LoginButton.UseVisualStyleBackColor = true;
@@ -139,7 +138,7 @@
             // deleteServerButton
             // 
             deleteServerButton.Enabled = false;
-            deleteServerButton.Location = new Point(600, 35);
+            deleteServerButton.Location = new Point(599, 9);
             deleteServerButton.Name = "deleteServerButton";
             deleteServerButton.Size = new Size(79, 33);
             deleteServerButton.TabIndex = 0;
@@ -150,7 +149,7 @@
             // editServerButton
             // 
             editServerButton.Enabled = false;
-            editServerButton.Location = new Point(506, 35);
+            editServerButton.Location = new Point(505, 9);
             editServerButton.Name = "editServerButton";
             editServerButton.Size = new Size(88, 33);
             editServerButton.TabIndex = 0;
@@ -160,7 +159,7 @@
             // 
             // addServerButton
             // 
-            addServerButton.Location = new Point(416, 35);
+            addServerButton.Location = new Point(415, 9);
             addServerButton.Name = "addServerButton";
             addServerButton.Size = new Size(84, 33);
             addServerButton.TabIndex = 0;
@@ -171,7 +170,7 @@
             // passwordLabel
             // 
             passwordLabel.AutoSize = true;
-            passwordLabel.Location = new Point(734, 94);
+            passwordLabel.Location = new Point(733, 68);
             passwordLabel.Name = "passwordLabel";
             passwordLabel.Size = new Size(91, 25);
             passwordLabel.TabIndex = 7;
@@ -179,7 +178,7 @@
             // 
             // passwordTextBox
             // 
-            passwordTextBox.Location = new Point(831, 91);
+            passwordTextBox.Location = new Point(830, 65);
             passwordTextBox.Name = "passwordTextBox";
             passwordTextBox.Size = new Size(216, 31);
             passwordTextBox.TabIndex = 0;
@@ -188,7 +187,7 @@
             // usernameLabel
             // 
             usernameLabel.AutoSize = true;
-            usernameLabel.Location = new Point(420, 91);
+            usernameLabel.Location = new Point(419, 65);
             usernameLabel.Name = "usernameLabel";
             usernameLabel.Size = new Size(95, 25);
             usernameLabel.TabIndex = 5;
@@ -196,7 +195,7 @@
             // 
             // usernameTextBox
             // 
-            usernameTextBox.Location = new Point(521, 91);
+            usernameTextBox.Location = new Point(520, 65);
             usernameTextBox.Name = "usernameTextBox";
             usernameTextBox.Size = new Size(207, 31);
             usernameTextBox.TabIndex = 0;
@@ -204,7 +203,7 @@
             // serverIpLabel
             // 
             serverIpLabel.AutoSize = true;
-            serverIpLabel.Location = new Point(22, 91);
+            serverIpLabel.Location = new Point(21, 65);
             serverIpLabel.Name = "serverIpLabel";
             serverIpLabel.Size = new Size(85, 25);
             serverIpLabel.TabIndex = 3;
@@ -212,7 +211,7 @@
             // 
             // serverIpTextBox
             // 
-            serverIpTextBox.Location = new Point(113, 88);
+            serverIpTextBox.Location = new Point(112, 62);
             serverIpTextBox.Name = "serverIpTextBox";
             serverIpTextBox.Size = new Size(297, 31);
             serverIpTextBox.TabIndex = 0;
@@ -220,7 +219,7 @@
             // serversLabel
             // 
             serversLabel.AutoSize = true;
-            serversLabel.Location = new Point(22, 38);
+            serversLabel.Location = new Point(21, 12);
             serversLabel.Name = "serversLabel";
             serversLabel.Size = new Size(73, 25);
             serversLabel.TabIndex = 1;
@@ -230,7 +229,7 @@
             // 
             serversComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
             serversComboBox.FormattingEnabled = true;
-            serversComboBox.Location = new Point(113, 35);
+            serversComboBox.Location = new Point(112, 9);
             serversComboBox.Name = "serversComboBox";
             serversComboBox.Size = new Size(297, 33);
             serversComboBox.TabIndex = 0;
@@ -240,10 +239,10 @@
             // 
             mainContentPanel.Controls.Add(tabControl);
             mainContentPanel.Dock = DockStyle.Fill;
-            mainContentPanel.Location = new Point(0, 150);
+            mainContentPanel.Location = new Point(0, 115);
             mainContentPanel.Margin = new Padding(3, 4, 3, 4);
             mainContentPanel.Name = "mainContentPanel";
-            mainContentPanel.Size = new Size(1234, 591);
+            mainContentPanel.Size = new Size(1427, 875);
             mainContentPanel.TabIndex = 1;
             // 
             // tabControl
@@ -255,7 +254,7 @@
             tabControl.Margin = new Padding(3, 4, 3, 4);
             tabControl.Name = "tabControl";
             tabControl.SelectedIndex = 0;
-            tabControl.Size = new Size(1234, 591);
+            tabControl.Size = new Size(1427, 875);
             tabControl.TabIndex = 0;
             // 
             // websitesTab
@@ -265,31 +264,27 @@
             websitesTab.Margin = new Padding(3, 4, 3, 4);
             websitesTab.Name = "websitesTab";
             websitesTab.Padding = new Padding(3, 4, 3, 4);
-            websitesTab.Size = new Size(1226, 553);
+            websitesTab.Size = new Size(1419, 837);
             websitesTab.TabIndex = 0;
             websitesTab.Text = "Websites";
             websitesTab.UseVisualStyleBackColor = true;
             // 
             // websitesDataGridView
             // 
+            websitesDataGridView.AllowUserToAddRows = false;
+            websitesDataGridView.AllowUserToDeleteRows = false;
             websitesDataGridView.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
             websitesDataGridView.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            websitesDataGridView.Columns.AddRange(new DataGridViewColumn[] { statusColumn });
             websitesDataGridView.ContextMenuStrip = websiteContextMenu;
             websitesDataGridView.Dock = DockStyle.Fill;
             websitesDataGridView.Location = new Point(3, 4);
             websitesDataGridView.Margin = new Padding(3, 4, 3, 4);
             websitesDataGridView.Name = "websitesDataGridView";
+            websitesDataGridView.ReadOnly = true;
             websitesDataGridView.RowHeadersWidth = 62;
-            websitesDataGridView.Size = new Size(1220, 545);
+            websitesDataGridView.Size = new Size(1413, 829);
             websitesDataGridView.TabIndex = 0;
             websitesDataGridView.CellClick += WebsitesDataGridView_CellClick;
-            // 
-            // statusColumn
-            // 
-            statusColumn.HeaderText = "Status";
-            statusColumn.MinimumWidth = 8;
-            statusColumn.Name = "statusColumn";
             // 
             // websiteContextMenu
             // 
@@ -340,7 +335,7 @@
             serviceTab.Margin = new Padding(3, 4, 3, 4);
             serviceTab.Name = "serviceTab";
             serviceTab.Padding = new Padding(3, 4, 3, 4);
-            serviceTab.Size = new Size(1226, 553);
+            serviceTab.Size = new Size(1419, 837);
             serviceTab.TabIndex = 1;
             serviceTab.Text = "Service Management";
             serviceTab.UseVisualStyleBackColor = true;
@@ -360,8 +355,8 @@
             // splitContainer.Panel2
             // 
             splitContainer.Panel2.Controls.Add(serviceLogsBox);
-            splitContainer.Size = new Size(1220, 545);
-            splitContainer.SplitterDistance = 344;
+            splitContainer.Size = new Size(1413, 829);
+            splitContainer.SplitterDistance = 217;
             splitContainer.TabIndex = 0;
             // 
             // serviceControlPanel
@@ -372,7 +367,7 @@
             serviceControlPanel.Location = new Point(0, 0);
             serviceControlPanel.Margin = new Padding(3, 4, 3, 4);
             serviceControlPanel.Name = "serviceControlPanel";
-            serviceControlPanel.Size = new Size(1220, 344);
+            serviceControlPanel.Size = new Size(1413, 217);
             serviceControlPanel.TabIndex = 0;
             // 
             // statusGroupBox
@@ -383,7 +378,7 @@
             statusGroupBox.Margin = new Padding(3, 4, 3, 4);
             statusGroupBox.Name = "statusGroupBox";
             statusGroupBox.Padding = new Padding(3, 4, 3, 4);
-            statusGroupBox.Size = new Size(1220, 150);
+            statusGroupBox.Size = new Size(1413, 150);
             statusGroupBox.TabIndex = 1;
             statusGroupBox.TabStop = false;
             statusGroupBox.Text = "Service Status";
@@ -410,7 +405,7 @@
             statusLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 25F));
             statusLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 25F));
             statusLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 25F));
-            statusLayout.Size = new Size(1214, 118);
+            statusLayout.Size = new Size(1407, 118);
             statusLayout.TabIndex = 0;
             // 
             // serviceNameLabelTitle
@@ -425,7 +420,7 @@
             // serviceNameLabel
             // 
             serviceNameLabel.AutoSize = true;
-            serviceNameLabel.Location = new Point(367, 0);
+            serviceNameLabel.Location = new Point(425, 0);
             serviceNameLabel.Name = "serviceNameLabel";
             serviceNameLabel.Size = new Size(19, 25);
             serviceNameLabel.TabIndex = 1;
@@ -444,7 +439,7 @@
             // serviceStatusLabel
             // 
             serviceStatusLabel.AutoSize = true;
-            serviceStatusLabel.Location = new Point(367, 29);
+            serviceStatusLabel.Location = new Point(425, 29);
             serviceStatusLabel.Name = "serviceStatusLabel";
             serviceStatusLabel.Size = new Size(19, 25);
             serviceStatusLabel.TabIndex = 3;
@@ -463,7 +458,7 @@
             // serviceActiveLabel
             // 
             serviceActiveLabel.AutoSize = true;
-            serviceActiveLabel.Location = new Point(367, 58);
+            serviceActiveLabel.Location = new Point(425, 58);
             serviceActiveLabel.Name = "serviceActiveLabel";
             serviceActiveLabel.Size = new Size(19, 25);
             serviceActiveLabel.TabIndex = 5;
@@ -482,7 +477,7 @@
             // lastOperationLabel
             // 
             lastOperationLabel.AutoSize = true;
-            lastOperationLabel.Location = new Point(367, 87);
+            lastOperationLabel.Location = new Point(425, 87);
             lastOperationLabel.Name = "lastOperationLabel";
             lastOperationLabel.Size = new Size(19, 25);
             lastOperationLabel.TabIndex = 7;
@@ -501,7 +496,7 @@
             buttonPanel.Margin = new Padding(3, 4, 3, 4);
             buttonPanel.Name = "buttonPanel";
             buttonPanel.Padding = new Padding(6);
-            buttonPanel.Size = new Size(1220, 66);
+            buttonPanel.Size = new Size(1413, 66);
             buttonPanel.TabIndex = 0;
             // 
             // getStatusButton
@@ -572,14 +567,15 @@
             // serviceLogsBox
             // 
             serviceLogsBox.BackColor = Color.Black;
+            serviceLogsBox.BorderStyle = BorderStyle.None;
             serviceLogsBox.Dock = DockStyle.Fill;
             serviceLogsBox.Font = new Font("Consolas", 9F);
-            serviceLogsBox.ForeColor = Color.LightGray;
+            serviceLogsBox.ForeColor = Color.PaleGreen;
             serviceLogsBox.Location = new Point(0, 0);
             serviceLogsBox.Margin = new Padding(3, 4, 3, 4);
             serviceLogsBox.Name = "serviceLogsBox";
             serviceLogsBox.ReadOnly = true;
-            serviceLogsBox.Size = new Size(1220, 197);
+            serviceLogsBox.Size = new Size(1413, 608);
             serviceLogsBox.TabIndex = 0;
             serviceLogsBox.Tag = "serviceLogs";
             serviceLogsBox.Text = "";
@@ -588,23 +584,25 @@
             // 
             statusLabel.AutoSize = true;
             statusLabel.Dock = DockStyle.Bottom;
-            statusLabel.Location = new Point(0, 716);
+            statusLabel.Location = new Point(0, 965);
             statusLabel.Name = "statusLabel";
             statusLabel.Size = new Size(60, 25);
             statusLabel.TabIndex = 2;
             statusLabel.Text = "Ready";
+            statusLabel.Visible = false;
             // 
             // MainForm
             // 
             AutoScaleDimensions = new SizeF(10F, 25F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(1234, 741);
+            ClientSize = new Size(1427, 990);
             Controls.Add(statusLabel);
             Controls.Add(mainContentPanel);
             Controls.Add(connectionPanel);
             FormBorderStyle = FormBorderStyle.FixedSingle;
             Margin = new Padding(3, 4, 3, 4);
             Name = "MainForm";
+            StartPosition = FormStartPosition.CenterScreen;
             Text = "ASP For Enhance";
             Load += MainForm_Load;
             connectionPanel.ResumeLayout(false);
@@ -636,12 +634,7 @@
         private TabPage websitesTab;
         private TabPage serviceTab;
         private DataGridView websitesDataGridView;
-        private DataGridViewTextBoxColumn nameColumn;
-        private DataGridViewTextBoxColumn idColumn;
-        private DataGridViewTextBoxColumn ipColumn;
-        private DataGridViewTextBoxColumn portColumn;
-        private DataGridViewTextBoxColumn fileNameColumn;
-        private DataGridViewTextBoxColumn statusColumn;
+
         private SplitContainer splitContainer;
         private Panel serviceControlPanel;
         private GroupBox statusGroupBox;
