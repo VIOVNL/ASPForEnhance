@@ -41,6 +41,7 @@
             statusStrip = new StatusStrip();
             statusLabel = new ToolStripStatusLabel();
             websitesDataGridView = new DataGridView();
+            addWebsiteButton = new Button();
             statusStrip.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)websitesDataGridView).BeginInit();
             SuspendLayout();
@@ -168,11 +169,22 @@
             websitesDataGridView.Size = new Size(916, 609);
             websitesDataGridView.TabIndex = 13;
             // 
+            // addWebsiteButton
+            // 
+            addWebsiteButton.Location = new Point(111, 112);
+            addWebsiteButton.Name = "addWebsiteButton";
+            addWebsiteButton.Size = new Size(112, 34);
+            addWebsiteButton.TabIndex = 14;
+            addWebsiteButton.Text = "Add";
+            addWebsiteButton.UseVisualStyleBackColor = true;
+            addWebsiteButton.Click += AddWebsiteButton_Click;
+            // 
             // MainForm
             // 
             AutoScaleDimensions = new SizeF(10F, 25F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(954, 822);
+            Controls.Add(addWebsiteButton);
             Controls.Add(websitesDataGridView);
             Controls.Add(statusStrip);
             Controls.Add(label2);
@@ -212,5 +224,6 @@
         private StatusStrip statusStrip;
         private ToolStripStatusLabel statusLabel;
         private DataGridView websitesDataGridView;
+        private Button addWebsiteButton;
     }
 }

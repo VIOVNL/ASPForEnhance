@@ -6,6 +6,7 @@ namespace ASPForEnhance
     {
         private SshCommandHelper sshHelper = new SshCommandHelper();
         private ServerManager serverManager = new ServerManager();
+        private List<WebsiteInfo> currentWebsites = new List<WebsiteInfo>();
         
         public MainForm()
         {
@@ -26,6 +27,9 @@ namespace ASPForEnhance
             RefreshServersList();
             UpdateServerButtonStates();
             UpdateStatus("Ready");
+            
+            // Initial state of the add website button (disabled until connected)
+            addWebsiteButton.Enabled = false;
         }
         
         private void SshHelper_ConnectionStatusChanged(object? sender, ConnectionStatusEventArgs e)
@@ -67,6 +71,7 @@ namespace ASPForEnhance
                 addServerButton.Enabled = false;
                 editServerButton.Enabled = false;
                 deleteServerButton.Enabled = false;
+                addWebsiteButton.Enabled = true; // Enable website addition when connected
 
                 // Start discovering websites
                 GetWebsites();
@@ -225,9 +230,11 @@ namespace ASPForEnhance
             usernameTextBox.Enabled = true;
             passwordTextBox.Enabled = true;
             addServerButton.Enabled = true;
+            addWebsiteButton.Enabled = false; // Disable website addition when disconnected
             UpdateServerButtonStates();
                 
             websitesDataGridView.DataSource = null;
+            currentWebsites.Clear();
         }
 
         protected override void OnFormClosing(FormClosingEventArgs e)
@@ -319,17 +326,158 @@ namespace ASPForEnhance
                 UpdateStatus("No websites found");
                 MessageBox.Show("No websites were found with ASPForEnhance metadata.", 
                     "No Websites Found", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                currentWebsites.Clear();
                 return;
             }
             
+            // Store the websites for later use
+            currentWebsites = new List<WebsiteInfo>(e.Websites);
+            
             // Bind the websites list to the DataGridView
             websitesDataGridView.DataSource = null; // Clear first to force refresh
-            websitesDataGridView.DataSource = e.Websites;
+            websitesDataGridView.DataSource = currentWebsites;
             
             UpdateStatus($"Found {e.Websites.Count} websites");
             
             // Make sure login button is enabled after website discovery completes
             LoginButton.Enabled = true;
+        }
+
+        private void AddWebsiteButton_Click(object sender, EventArgs e)
+        {
+            if (!sshHelper.IsConnected)
+            {
+                MessageBox.Show("Please connect to a server first.", "Not Connected", 
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            // Get the next available port
+            int nextPort = DetermineNextAvailablePort();
+            
+            // Get the current server IP
+            string serverIp = serverIpTextBox.Text.Trim();
+            
+            // Show the website form
+            using var form = new WebsiteForm(serverIp, nextPort);
+            if (form.ShowDialog() == DialogResult.OK)
+            {
+                // Create and upload the service file
+                CreateServiceFile(form.WebsiteInfo, form.AspDllPath, form.FolderPath);
+            }
+        }
+
+        private int DetermineNextAvailablePort()
+        {
+            const int defaultStartingPort = 5020;
+            
+            if (currentWebsites == null || currentWebsites.Count == 0)
+                return defaultStartingPort;
+                
+            // Find the highest port in use
+            int highestPort = defaultStartingPort - 1; // Default if no ports are in use
+            
+            foreach (var website in currentWebsites)
+            {
+                if (int.TryParse(website.Port, out int port))
+                {
+                    if (port > highestPort)
+                        highestPort = port;
+                }
+            }
+            
+            // Return the next available port (highest + 1)
+            return highestPort + 1;
+        }
+
+        private void CreateServiceFile(WebsiteInfo websiteInfo, string aspDllPath, string folderPath)
+        {
+            if (!sshHelper.IsConnected)
+                return;
+                
+            try
+            {
+                // Format the service file content based on the template
+                string serviceFileContent = GenerateServiceFileContent(websiteInfo, aspDllPath, folderPath);
+                
+                // Get the service file name
+                string serviceFileName = websiteInfo.FileName;
+                
+                // Create a temporary file locally
+                string tempFilePath = Path.Combine(Path.GetTempPath(), serviceFileName);
+                File.WriteAllText(tempFilePath, serviceFileContent);
+                
+                UpdateStatus($"Creating service file {serviceFileName}...");
+                
+                // Upload the file to the server using SCP
+                using (var scpClient = new ScpClient(
+                    serverIpTextBox.Text.Trim(),
+                    usernameTextBox.Text.Trim(),
+                    passwordTextBox.Text))
+                {
+                    scpClient.Connect();
+                    
+                    using (var fileStream = new FileStream(tempFilePath, FileMode.Open))
+                    {
+                        string remoteFilePath = $"/etc/systemd/system/{serviceFileName}";
+                        scpClient.Upload(fileStream, remoteFilePath);
+                    }
+                    
+                    scpClient.Disconnect();
+                }
+                
+                // Delete the temporary file
+                File.Delete(tempFilePath);
+                
+                // Reload systemd daemon and enable the service
+                sshHelper.ExecuteCommand($"sudo systemctl daemon-reload && sudo systemctl enable {serviceFileName}");
+                
+                // Show success message
+                MessageBox.Show($"Website {websiteInfo.Name} has been added successfully.\n\n" +
+                                "To start the service, run:\n" +
+                                $"sudo systemctl start {serviceFileName}", 
+                                "Website Added", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                
+                // Refresh the websites list
+                GetWebsites();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error creating service file: {ex.Message}", "Error", 
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                UpdateStatus($"Error: {ex.Message}");
+            }
+        }
+
+        private string GenerateServiceFileContent(WebsiteInfo websiteInfo, string aspDllPath, string folderPath)
+        {
+            // Extract the working directory (folder path) from the DLL path
+            string workingDirectory = Path.GetDirectoryName(aspDllPath)?.Replace('\\', '/') ?? $"/var/www/{websiteInfo.Id}/{folderPath}";
+            
+            // Extract the DLL filename
+            string dllFilename = Path.GetFileName(aspDllPath);
+            
+            // Format the service file content based on the template
+            return $"""
+                    [Service]
+                    WorkingDirectory={workingDirectory}
+                    ExecStart=/usr/bin/dotnet {workingDirectory}/{dllFilename}
+                    Restart=always
+                    # Restart service after 10 seconds if the dotnet service crashes:
+                    RestartSec=10
+                    KillSignal=SIGINT
+                    SyslogIdentifier=AspForEnhance{websiteInfo.Name.Replace(".", "")}
+                    Environment=ASPNETCORE_ENVIRONMENT=Production
+                    Environment=DOTNET_PRINT_TELEMETRY_MESSAGE=false
+                    Environment=ASPNETCORE_URLS=http://{websiteInfo.Ip}:{websiteInfo.Port}
+                    [Install]
+                    WantedBy=multi-user.target
+
+                    # [ASPForEnhance Name="{websiteInfo.Name}"]
+                    # [ASPForEnhance Id="{websiteInfo.Id}"]
+                    # [ASPForEnhance Ip="{websiteInfo.Ip}"]
+                    # [ASPForEnhance Port="{websiteInfo.Port}"]
+                    """;
         }
     }
 }
