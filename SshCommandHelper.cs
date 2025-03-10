@@ -23,6 +23,11 @@ namespace ASPForEnhance
 
         // Event for website creation completion
         public event EventHandler<WebsiteCreatedEventArgs>? WebsiteCreated;
+        
+        // New events for service operations
+        public event EventHandler<ServiceStatusEventArgs>? ServiceStatusReceived;
+        public event EventHandler<ServiceOperationEventArgs>? ServiceOperationCompleted;
+        public event EventHandler<ServiceLogsEventArgs>? ServiceLogsReceived;
 
         public bool IsConnected => sshClient?.IsConnected ?? false;
 
@@ -204,6 +209,127 @@ namespace ASPForEnhance
             worker.RunWorkerAsync(parameters);
         }
 
+        // New method to get service status asynchronously
+        public void GetServiceStatusAsync(string serviceName)
+        {
+            if (!IsConnected)
+            {
+                RaiseServiceStatusReceived(false, "Not connected to SSH server", null);
+                return;
+            }
+
+            if (worker.IsBusy)
+            {
+                RaiseServiceStatusReceived(false, "Worker is busy, cannot check service status", null);
+                return;
+            }
+
+            var parameters = new ServiceOperationParameters
+            {
+                OperationType = OperationType.GetStatus,
+                ServiceName = serviceName
+            };
+
+            worker.RunWorkerAsync(parameters);
+        }
+
+        // New method to restart a service asynchronously
+        public void RestartServiceAsync(string serviceName)
+        {
+            if (!IsConnected)
+            {
+                RaiseServiceOperationCompleted(false, "Not connected to SSH server", ServiceOperation.Restart);
+                return;
+            }
+
+            if (worker.IsBusy)
+            {
+                RaiseServiceOperationCompleted(false, "Worker is busy, cannot restart service", ServiceOperation.Restart);
+                return;
+            }
+
+            var parameters = new ServiceOperationParameters
+            {
+                OperationType = OperationType.RestartService,
+                ServiceName = serviceName
+            };
+
+            worker.RunWorkerAsync(parameters);
+        }
+
+        // New method to stop a service asynchronously
+        public void StopServiceAsync(string serviceName)
+        {
+            if (!IsConnected)
+            {
+                RaiseServiceOperationCompleted(false, "Not connected to SSH server", ServiceOperation.Stop);
+                return;
+            }
+
+            if (worker.IsBusy)
+            {
+                RaiseServiceOperationCompleted(false, "Worker is busy, cannot stop service", ServiceOperation.Stop);
+                return;
+            }
+
+            var parameters = new ServiceOperationParameters
+            {
+                OperationType = OperationType.StopService,
+                ServiceName = serviceName
+            };
+
+            worker.RunWorkerAsync(parameters);
+        }
+
+        // New method to disable a service asynchronously
+        public void DisableServiceAsync(string serviceName)
+        {
+            if (!IsConnected)
+            {
+                RaiseServiceOperationCompleted(false, "Not connected to SSH server", ServiceOperation.Disable);
+                return;
+            }
+
+            if (worker.IsBusy)
+            {
+                RaiseServiceOperationCompleted(false, "Worker is busy, cannot disable service", ServiceOperation.Disable);
+                return;
+            }
+
+            var parameters = new ServiceOperationParameters
+            {
+                OperationType = OperationType.DisableService,
+                ServiceName = serviceName
+            };
+
+            worker.RunWorkerAsync(parameters);
+        }
+
+        // New method to get service logs asynchronously
+        public void GetServiceLogsAsync(string serviceName, int lines = 100)
+        {
+            if (!IsConnected)
+            {
+                RaiseServiceLogsReceived(false, "Not connected to SSH server", null);
+                return;
+            }
+
+            if (worker.IsBusy)
+            {
+                RaiseServiceLogsReceived(false, "Worker is busy, cannot get service logs", null);
+                return;
+            }
+
+            var parameters = new ServiceLogParameters
+            {
+                OperationType = OperationType.GetLogs,
+                ServiceName = serviceName,
+                Lines = lines
+            };
+
+            worker.RunWorkerAsync(parameters);
+        }
+
         private void Worker_DoWork(object? sender, DoWorkEventArgs e)
         {
             // Check if this is a connection operation
@@ -217,6 +343,20 @@ namespace ASPForEnhance
             if (e.Argument is WebsiteCreationParameters websiteParams)
             {
                 e.Result = ProcessWebsiteCreationOperation(websiteParams);
+                return;
+            }
+            
+            // Check if this is a service operation
+            if (e.Argument is ServiceOperationParameters serviceParams)
+            {
+                e.Result = ProcessServiceOperation(serviceParams);
+                return;
+            }
+            
+            // Check if this is a service log operation
+            if (e.Argument is ServiceLogParameters logParams)
+            {
+                e.Result = ProcessServiceLogOperation(logParams);
                 return;
             }
             
@@ -649,11 +789,226 @@ namespace ASPForEnhance
                 return;
             }
             
+            // Handle service status result
+            if (e.Result is ServiceStatusResult statusResult)
+            {
+                RaiseServiceStatusReceived(statusResult.Success, statusResult.Error, statusResult.Status);
+                return;
+            }
+            
+            // Handle service operation result
+            if (e.Result is ServiceOperationResult operationResult)
+            {
+                RaiseServiceOperationCompleted(operationResult.Success, operationResult.Error, operationResult.Operation);
+                return;
+            }
+            
+            // Handle service log result
+            if (e.Result is ServiceLogResult logResult)
+            {
+                RaiseServiceLogsReceived(logResult.Success, logResult.Error, logResult.Logs);
+                return;
+            }
+            
             // Handle regular command result
             if (e.Result is CommandResult result)
             {
                 RaiseCommandCompleted(result.Success, result.Error, result.Output);
             }
+        }
+        
+        // Process service operation
+        private object ProcessServiceOperation(ServiceOperationParameters parameters)
+        {
+            if (sshClient == null || !sshClient.IsConnected)
+            {
+                return new ServiceOperationResult 
+                { 
+                    Success = false, 
+                    Error = "SSH client is not connected",
+                    Operation = GetServiceOperationFromOperationType(parameters.OperationType)
+                };
+            }
+
+            try
+            {
+                string command;
+                
+                // Build the appropriate command based on operation type
+                switch (parameters.OperationType)
+                {
+                    case OperationType.GetStatus:
+                        command = $"sudo systemctl status {parameters.ServiceName}";
+                        using (var cmd = sshClient.CreateCommand(command))
+                        {
+                            string output = cmd.Execute();
+                            
+                            // Parse the output to create a ServiceStatus object
+                            ServiceStatus status = ParseServiceStatusOutput(output, parameters.ServiceName);
+                            
+                            return new ServiceStatusResult
+                            {
+                                Success = true,
+                                Status = status
+                            };
+                        }
+
+                    case OperationType.RestartService:
+                        command = $"sudo systemctl restart {parameters.ServiceName}";
+                        break;
+                        
+                    case OperationType.StopService:
+                        command = $"sudo systemctl stop {parameters.ServiceName}";
+                        break;
+                        
+                    case OperationType.DisableService:
+                        command = $"sudo systemctl disable {parameters.ServiceName}";
+                        break;
+                        
+                    default:
+                        return new ServiceOperationResult
+                        {
+                            Success = false,
+                            Error = "Unknown service operation",
+                            Operation = GetServiceOperationFromOperationType(parameters.OperationType)
+                        };
+                }
+                
+                // Execute the command for operations other than GetStatus
+                using (var cmd = sshClient.CreateCommand(command))
+                {
+                    string output = cmd.Execute();
+                    
+                    bool success = cmd.ExitStatus == 0;
+                    string? error = success ? null : $"Command failed with exit code: {cmd.ExitStatus}. Output: {output}";
+                    
+                    return new ServiceOperationResult
+                    {
+                        Success = success,
+                        Error = error,
+                        Output = output,
+                        Operation = GetServiceOperationFromOperationType(parameters.OperationType)
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                return new ServiceOperationResult
+                {
+                    Success = false,
+                    Error = ex.Message,
+                    Operation = GetServiceOperationFromOperationType(parameters.OperationType)
+                };
+            }
+        }
+
+        // Process service log operation
+        private object ProcessServiceLogOperation(ServiceLogParameters parameters)
+        {
+            if (sshClient == null || !sshClient.IsConnected)
+            {
+                return new ServiceLogResult { Success = false, Error = "SSH client is not connected" };
+            }
+
+            try
+            {
+                // Build the command to get logs with journalctl
+                string command = $"sudo journalctl -u {parameters.ServiceName} -n {parameters.Lines} --no-pager";
+                
+                using (var cmd = sshClient.CreateCommand(command))
+                {
+                    string output = cmd.Execute();
+                    
+                    bool success = cmd.ExitStatus == 0;
+                    string? error = success ? null : $"Command failed with exit code: {cmd.ExitStatus}";
+                    
+                    return new ServiceLogResult
+                    {
+                        Success = success,
+                        Error = error,
+                        Logs = success ? output : null
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                return new ServiceLogResult
+                {
+                    Success = false,
+                    Error = ex.Message
+                };
+            }
+        }
+
+        // Parse service status output into a ServiceStatus object
+        private ServiceStatus ParseServiceStatusOutput(string output, string serviceName)
+        {
+            ServiceStatus status = new ServiceStatus
+            {
+                ServiceName = serviceName,
+                RawOutput = output
+            };
+            
+            // Extract status (active, inactive, failed, etc.)
+            Match activeMatch = Regex.Match(output, @"Active:\s+(\w+)");
+            if (activeMatch.Success)
+            {
+                status.State = activeMatch.Groups[1].Value;
+            }
+            
+            // Extract whether the service is enabled
+            Match enabledMatch = Regex.Match(output, @"Loaded:.*?;\s+(\w+);");
+            if (enabledMatch.Success)
+            {
+                status.IsEnabled = enabledMatch.Groups[1].Value == "enabled";
+            }
+            
+            // Extract other useful information
+            Match memoryMatch = Regex.Match(output, @"Memory:\s+(\d+\.\d+\s+\w+)");
+            if (memoryMatch.Success)
+            {
+                status.MemoryUsage = memoryMatch.Groups[1].Value;
+            }
+            
+            Match pidMatch = Regex.Match(output, @"Main PID:\s+(\d+)");
+            if (pidMatch.Success)
+            {
+                if (int.TryParse(pidMatch.Groups[1].Value, out int pid))
+                {
+                    status.PID = pid;
+                }
+            }
+            
+            return status;
+        }
+        
+        // Map OperationType to ServiceOperation enum
+        private ServiceOperation GetServiceOperationFromOperationType(OperationType operationType)
+        {
+            return operationType switch
+            {
+                OperationType.RestartService => ServiceOperation.Restart,
+                OperationType.StopService => ServiceOperation.Stop,
+                OperationType.DisableService => ServiceOperation.Disable,
+                OperationType.GetStatus => ServiceOperation.Status,
+                _ => ServiceOperation.Unknown
+            };
+        }
+
+        // Event raisers for service operations
+        private void RaiseServiceStatusReceived(bool success, string? error, ServiceStatus? status)
+        {
+            ServiceStatusReceived?.Invoke(this, new ServiceStatusEventArgs(success, error, status));
+        }
+
+        private void RaiseServiceOperationCompleted(bool success, string? error, ServiceOperation operation)
+        {
+            ServiceOperationCompleted?.Invoke(this, new ServiceOperationEventArgs(success, error, operation));
+        }
+
+        private void RaiseServiceLogsReceived(bool success, string? error, string? logs)
+        {
+            ServiceLogsReceived?.Invoke(this, new ServiceLogsEventArgs(success, error, logs));
         }
 
         private void RaiseCommandCompleted(bool success, string? error, string? output)
@@ -765,10 +1120,28 @@ namespace ASPForEnhance
             public string Password { get; set; } = string.Empty;
         }
 
+        // Service operation parameters
+        private class ServiceOperationParameters
+        {
+            public OperationType OperationType { get; set; }
+            public string ServiceName { get; set; } = string.Empty;
+        }
+
+        // Service log parameters
+        private class ServiceLogParameters : ServiceOperationParameters
+        {
+            public int Lines { get; set; } = 100;
+        }
+
         private enum OperationType
         {
             Connect,
-            Disconnect
+            Disconnect,
+            GetStatus,
+            RestartService,
+            StopService,
+            DisableService,
+            GetLogs
         }
 
         private class CommandResult
@@ -796,6 +1169,28 @@ namespace ASPForEnhance
         private class WebsiteCreationResult : CommandResult
         {
             public WebsiteInfo? Website { get; set; }
+        }
+
+        // Service status result
+        private class ServiceStatusResult
+        {
+            public bool Success { get; set; }
+            public string? Error { get; set; }
+            public ServiceStatus? Status { get; set; }
+        }
+
+        // Service operation result
+        private class ServiceOperationResult : CommandResult
+        {
+            public ServiceOperation Operation { get; set; }
+        }
+
+        // Service log result
+        private class ServiceLogResult
+        {
+            public bool Success { get; set; }
+            public string? Error { get; set; }
+            public string? Logs { get; set; }
         }
     }
 
@@ -866,6 +1261,72 @@ namespace ASPForEnhance
             Success = success;
             Error = error;
             Website = website;
+        }
+    }
+
+    // Service operation type enum
+    public enum ServiceOperation
+    {
+        Unknown,
+        Status,
+        Restart,
+        Stop,
+        Disable
+    }
+
+    // Service status class
+    public class ServiceStatus
+    {
+        public string ServiceName { get; set; } = string.Empty;
+        public string State { get; set; } = string.Empty;
+        public bool IsEnabled { get; set; }
+        public int? PID { get; set; }
+        public string? MemoryUsage { get; set; }
+        public string RawOutput { get; set; } = string.Empty;
+    }
+
+    // Service status event args
+    public class ServiceStatusEventArgs : EventArgs
+    {
+        public bool Success { get; }
+        public string? Error { get; }
+        public ServiceStatus? Status { get; }
+        
+        public ServiceStatusEventArgs(bool success, string? error, ServiceStatus? status)
+        {
+            Success = success;
+            Error = error;
+            Status = status;
+        }
+    }
+
+    // Service operation event args
+    public class ServiceOperationEventArgs : EventArgs
+    {
+        public bool Success { get; }
+        public string? Error { get; }
+        public ServiceOperation Operation { get; }
+        
+        public ServiceOperationEventArgs(bool success, string? error, ServiceOperation operation)
+        {
+            Success = success;
+            Error = error;
+            Operation = operation;
+        }
+    }
+
+    // Service logs event args
+    public class ServiceLogsEventArgs : EventArgs
+    {
+        public bool Success { get; }
+        public string? Error { get; }
+        public string? Logs { get; }
+        
+        public ServiceLogsEventArgs(bool success, string? error, string? logs)
+        {
+            Success = success;
+            Error = error;
+            Logs = logs;
         }
     }
 }

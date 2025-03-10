@@ -32,7 +32,6 @@
             usernameTextBox = new TextBox();
             passwordTextBox = new TextBox();
             LoginButton = new Button();
-            label1 = new Label();
             serversComboBox = new ComboBox();
             addServerButton = new Button();
             editServerButton = new Button();
@@ -80,15 +79,6 @@
             LoginButton.Text = "Login";
             LoginButton.UseVisualStyleBackColor = true;
             LoginButton.Click += LoginButton_Click;
-            // 
-            // label1
-            // 
-            label1.AutoSize = true;
-            label1.Location = new Point(22, 116);
-            label1.Name = "label1";
-            label1.Size = new Size(83, 25);
-            label1.TabIndex = 5;
-            label1.Text = "Websites";
             // 
             // serversComboBox
             // 
@@ -145,7 +135,7 @@
             statusStrip.Items.AddRange(new ToolStripItem[] { statusLabel });
             statusStrip.Location = new Point(0, 790);
             statusStrip.Name = "statusStrip";
-            statusStrip.Size = new Size(954, 32);
+            statusStrip.Size = new Size(1059, 32);
             statusStrip.TabIndex = 11;
             statusStrip.Text = "statusStrip1";
             // 
@@ -166,12 +156,12 @@
             websitesDataGridView.ReadOnly = true;
             websitesDataGridView.RowHeadersWidth = 62;
             websitesDataGridView.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            websitesDataGridView.Size = new Size(916, 609);
+            websitesDataGridView.Size = new Size(1021, 609);
             websitesDataGridView.TabIndex = 13;
             // 
             // addWebsiteButton
             // 
-            addWebsiteButton.Location = new Point(111, 112);
+            addWebsiteButton.Location = new Point(944, 62);
             addWebsiteButton.Name = "addWebsiteButton";
             addWebsiteButton.Size = new Size(112, 34);
             addWebsiteButton.TabIndex = 14;
@@ -183,7 +173,7 @@
             // 
             AutoScaleDimensions = new SizeF(10F, 25F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(954, 822);
+            ClientSize = new Size(1059, 822);
             Controls.Add(addWebsiteButton);
             Controls.Add(websitesDataGridView);
             Controls.Add(statusStrip);
@@ -192,7 +182,6 @@
             Controls.Add(editServerButton);
             Controls.Add(addServerButton);
             Controls.Add(serversComboBox);
-            Controls.Add(label1);
             Controls.Add(LoginButton);
             Controls.Add(passwordTextBox);
             Controls.Add(usernameTextBox);
@@ -215,7 +204,6 @@
         private TextBox usernameTextBox;
         private TextBox passwordTextBox;
         private Button LoginButton;
-        private Label label1;
         private ComboBox serversComboBox;
         private Button addServerButton;
         private Button editServerButton;
