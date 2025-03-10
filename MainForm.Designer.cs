@@ -285,6 +285,7 @@
             websitesDataGridView.Size = new Size(1413, 829);
             websitesDataGridView.TabIndex = 0;
             websitesDataGridView.CellClick += WebsitesDataGridView_CellClick;
+            websitesDataGridView.CellDoubleClick += websitesDataGridView_CellDoubleClick;
             // 
             // websiteContextMenu
             // 
