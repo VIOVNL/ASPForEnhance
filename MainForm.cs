@@ -243,7 +243,7 @@ namespace ASPForEnhance
             passwordTextBox.Enabled = true;
             addServerButton.Enabled = true;
             addWebsiteButton.Enabled = false; // Disable website addition when disconnected
-            this.Height = 162;
+            this.Height = 172;
             UpdateServerButtonStates();
                 
             websitesDataGridView.DataSource = null;
