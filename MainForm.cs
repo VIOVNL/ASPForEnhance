@@ -363,7 +363,7 @@ namespace ASPForEnhance
             if (form.ShowDialog() == DialogResult.OK)
             {
                 // Create and upload the service file
-                CreateServiceFile(form.WebsiteInfo, form.AspDllPath, form.FolderPath);
+                CreateServiceFile(form.WebsiteInfo, form.AspDllPath, form.FolderPath, form.EnableBlazorSignalR);
             }
         }
 
@@ -390,7 +390,7 @@ namespace ASPForEnhance
             return highestPort + 1;
         }
 
-        private void CreateServiceFile(WebsiteInfo websiteInfo, string aspDllPath, string folderPath)
+        private void CreateServiceFile(WebsiteInfo websiteInfo, string aspDllPath, string folderPath, bool enableBlazorSignalR)
         {
             if (!sshHelper.IsConnected)
                 return;
@@ -423,14 +423,41 @@ namespace ASPForEnhance
                         scpClient.Upload(fileStream, remoteFilePath);
                     }
                     
+                    // Now create and upload the Apache vhost config
+                    string apacheConfigFileName = $"{websiteInfo.Name}.conf";
+                    string apacheConfigContent = GenerateApacheConfigContent(websiteInfo, enableBlazorSignalR);
+                    
+                    // Create a temporary apache config file
+                    string tempApacheConfigPath = Path.Combine(Path.GetTempPath(), apacheConfigFileName);
+                    File.WriteAllText(tempApacheConfigPath, apacheConfigContent);
+                    
+                    UpdateStatus($"Creating Apache config file {apacheConfigFileName}...");
+                    
+                    // Check if vhost directory exists, create if needed
+                    sshHelper.ExecuteCommand("sudo mkdir -p /var/local/enhance/vhost_includes");
+                    
+                    // Upload Apache config file
+                    using (var apacheConfigStream = new FileStream(tempApacheConfigPath, FileMode.Open))
+                    {
+                        string remoteApacheConfigPath = $"/var/local/enhance/vhost_includes/{apacheConfigFileName}";
+                        scpClient.Upload(apacheConfigStream, remoteApacheConfigPath);
+                    }
+                    
+                    // Delete the temporary Apache config file
+                    File.Delete(tempApacheConfigPath);
+                    
                     scpClient.Disconnect();
                 }
                 
-                // Delete the temporary file
+                // Delete the temporary service file
                 File.Delete(tempFilePath);
                 
                 // Reload systemd daemon and enable the service
                 sshHelper.ExecuteCommand($"sudo systemctl daemon-reload && sudo systemctl enable {serviceFileName}");
+                
+                // Restart Apache to apply the vhost configuration
+                UpdateStatus("Restarting Apache...");
+                sshHelper.ExecuteCommand("sudo service apache2 restart");
                 
                 // Show success message
                 MessageBox.Show($"Website {websiteInfo.Name} has been added successfully.\n\n" +
@@ -447,6 +474,32 @@ namespace ASPForEnhance
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
                 UpdateStatus($"Error: {ex.Message}");
             }
+        }
+        
+        private string GenerateApacheConfigContent(WebsiteInfo websiteInfo, bool enableBlazorSignalR)
+        {
+            // Base Apache configuration with proxy settings
+            string config = $$"""
+                              RequestHeader set "X-Forwarded-Proto" expr=%{REQUEST_SCHEME}
+                              ProxyPreserveHost On
+                              ProxyPass / http://{{websiteInfo.Ip}}:{{websiteInfo.Port}}/
+                              ProxyPassReverse / http://{{websiteInfo.Ip}}:{{websiteInfo.Port}}/
+
+                              """;
+
+            // Add WebSocket support for Blazor/SignalR if enabled
+            if (enableBlazorSignalR)
+            {
+                config += $$"""
+
+                            RewriteEngine On
+                            RewriteCond %{HTTP:Upgrade} =websocket [NC]
+                            RewriteRule /(.*) ws://{{websiteInfo.Ip}}:{{websiteInfo.Port}}/$1 [P,L]
+
+                            """;
+            }
+
+            return config;
         }
 
         private string GenerateServiceFileContent(WebsiteInfo websiteInfo, string aspDllPath, string folderPath)
