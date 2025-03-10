@@ -16,6 +16,7 @@ namespace ASPForEnhance
             sshHelper.ConnectionStatusChanged += SshHelper_ConnectionStatusChanged;
             sshHelper.WebsitesDiscovered += SshHelper_WebsitesDiscovered;
             sshHelper.ConnectionCompleted += SshHelper_ConnectionCompleted;
+            sshHelper.WebsiteCreated += SshHelper_WebsiteCreated; // Add new event handler
             
             // Set up DataGridView
             SetupWebsitesDataGridView();
@@ -362,9 +363,47 @@ namespace ASPForEnhance
             using var form = new WebsiteForm(serverIp, nextPort);
             if (form.ShowDialog() == DialogResult.OK)
             {
-                // Create and upload the service file
-                CreateServiceFile(form.WebsiteInfo, form.AspDllPath, form.FolderPath, form.EnableBlazorSignalR);
+                // Create and upload the service file asynchronously
+                UpdateStatus($"Creating website {form.WebsiteInfo.Name}...");
+                sshHelper.CreateWebsiteAsync(form.WebsiteInfo, form.AspDllPath, form.FolderPath, form.EnableBlazorSignalR, passwordTextBox.Text);
+                
+                // Disable the add website button during creation
+                addWebsiteButton.Enabled = false;
             }
+        }
+
+        private void SshHelper_WebsiteCreated(object? sender, WebsiteCreatedEventArgs e)
+        {
+            // Ensure we update the UI from the UI thread
+            if (InvokeRequired)
+            {
+                Invoke(new Action(() => ProcessWebsiteCreationResult(e)));
+            }
+            else
+            {
+                ProcessWebsiteCreationResult(e);
+            }
+        }
+
+        private void ProcessWebsiteCreationResult(WebsiteCreatedEventArgs e)
+        {
+            // Re-enable the add website button
+            addWebsiteButton.Enabled = true;
+            
+            if (!e.Success)
+            {
+                MessageBox.Show($"Failed to create website: {e.Error}", "Error", 
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                UpdateStatus($"Error: {e.Error}");
+                return;
+            }
+            
+            // Show success message
+            MessageBox.Show($"Website {e.Website?.Name} has been added successfully.", 
+                            "Website Added", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            
+            // Refresh the websites list
+            GetWebsites();
         }
 
         private int DetermineNextAvailablePort()
@@ -388,149 +427,6 @@ namespace ASPForEnhance
             
             // Return the next available port (highest + 1)
             return highestPort + 1;
-        }
-
-        private void CreateServiceFile(WebsiteInfo websiteInfo, string aspDllPath, string folderPath, bool enableBlazorSignalR)
-        {
-            if (!sshHelper.IsConnected)
-                return;
-                
-            try
-            {
-                // Format the service file content based on the template
-                string serviceFileContent = GenerateServiceFileContent(websiteInfo, aspDllPath, folderPath);
-                
-                // Get the service file name
-                string serviceFileName = websiteInfo.FileName;
-                
-                // Create a temporary file locally
-                string tempFilePath = Path.Combine(Path.GetTempPath(), serviceFileName);
-                File.WriteAllText(tempFilePath, serviceFileContent);
-                
-                UpdateStatus($"Creating service file {serviceFileName}...");
-                
-                // Upload the file to the server using SCP
-                using (var scpClient = new ScpClient(
-                    serverIpTextBox.Text.Trim(),
-                    usernameTextBox.Text.Trim(),
-                    passwordTextBox.Text))
-                {
-                    scpClient.Connect();
-                    
-                    using (var fileStream = new FileStream(tempFilePath, FileMode.Open))
-                    {
-                        string remoteFilePath = $"/etc/systemd/system/{serviceFileName}";
-                        scpClient.Upload(fileStream, remoteFilePath);
-                    }
-                    
-                    // Now create and upload the Apache vhost config
-                    string apacheConfigFileName = $"{websiteInfo.Name}.conf";
-                    string apacheConfigContent = GenerateApacheConfigContent(websiteInfo, enableBlazorSignalR);
-                    
-                    // Create a temporary apache config file
-                    string tempApacheConfigPath = Path.Combine(Path.GetTempPath(), apacheConfigFileName);
-                    File.WriteAllText(tempApacheConfigPath, apacheConfigContent);
-                    
-                    UpdateStatus($"Creating Apache config file {apacheConfigFileName}...");
-                    
-                    // Check if vhost directory exists, create if needed
-                    sshHelper.ExecuteCommand("sudo mkdir -p /var/local/enhance/vhost_includes");
-                    
-                    // Upload Apache config file
-                    using (var apacheConfigStream = new FileStream(tempApacheConfigPath, FileMode.Open))
-                    {
-                        string remoteApacheConfigPath = $"/var/local/enhance/vhost_includes/{apacheConfigFileName}";
-                        scpClient.Upload(apacheConfigStream, remoteApacheConfigPath);
-                    }
-                    
-                    // Delete the temporary Apache config file
-                    File.Delete(tempApacheConfigPath);
-                    
-                    scpClient.Disconnect();
-                }
-                
-                // Delete the temporary service file
-                File.Delete(tempFilePath);
-                
-                // Reload systemd daemon and enable the service
-                sshHelper.ExecuteCommand($"sudo systemctl daemon-reload && sudo systemctl enable {serviceFileName}");
-                
-                // Restart Apache to apply the vhost configuration
-                UpdateStatus("Restarting Apache...");
-                sshHelper.ExecuteCommand("sudo service apache2 restart");
-                
-                // Show success message
-                MessageBox.Show($"Website {websiteInfo.Name} has been added successfully.\n\n" +
-                                "To start the service, run:\n" +
-                                $"sudo systemctl start {serviceFileName}", 
-                                "Website Added", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                
-                // Refresh the websites list
-                GetWebsites();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error creating service file: {ex.Message}", "Error", 
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
-                UpdateStatus($"Error: {ex.Message}");
-            }
-        }
-        
-        private string GenerateApacheConfigContent(WebsiteInfo websiteInfo, bool enableBlazorSignalR)
-        {
-            // Base Apache configuration with proxy settings
-            string config = $$"""
-                              RequestHeader set "X-Forwarded-Proto" expr=%{REQUEST_SCHEME}
-                              ProxyPreserveHost On
-                              ProxyPass / http://{{websiteInfo.Ip}}:{{websiteInfo.Port}}/
-                              ProxyPassReverse / http://{{websiteInfo.Ip}}:{{websiteInfo.Port}}/
-
-                              """;
-
-            // Add WebSocket support for Blazor/SignalR if enabled
-            if (enableBlazorSignalR)
-            {
-                config += $$"""
-
-                            RewriteEngine On
-                            RewriteCond %{HTTP:Upgrade} =websocket [NC]
-                            RewriteRule /(.*) ws://{{websiteInfo.Ip}}:{{websiteInfo.Port}}/$1 [P,L]
-
-                            """;
-            }
-
-            return config;
-        }
-
-        private string GenerateServiceFileContent(WebsiteInfo websiteInfo, string aspDllPath, string folderPath)
-        {
-            // Extract the working directory (folder path) from the DLL path
-            string workingDirectory = Path.GetDirectoryName(aspDllPath)?.Replace('\\', '/') ?? $"/var/www/{websiteInfo.Id}/{folderPath}";
-            
-            // Extract the DLL filename
-            string dllFilename = Path.GetFileName(aspDllPath);
-            
-            // Format the service file content based on the template
-            return $"""
-                    [Service]
-                    WorkingDirectory={workingDirectory}
-                    ExecStart=/usr/bin/dotnet {workingDirectory}/{dllFilename}
-                    Restart=always
-                    # Restart service after 10 seconds if the dotnet service crashes:
-                    RestartSec=10
-                    KillSignal=SIGINT
-                    SyslogIdentifier=AspForEnhance{websiteInfo.Name.Replace(".", "")}
-                    Environment=ASPNETCORE_ENVIRONMENT=Production
-                    Environment=DOTNET_PRINT_TELEMETRY_MESSAGE=false
-                    Environment=ASPNETCORE_URLS=http://{websiteInfo.Ip}:{websiteInfo.Port}
-                    [Install]
-                    WantedBy=multi-user.target
-
-                    # [ASPForEnhance Name="{websiteInfo.Name}"]
-                    # [ASPForEnhance Id="{websiteInfo.Id}"]
-                    # [ASPForEnhance Ip="{websiteInfo.Ip}"]
-                    # [ASPForEnhance Port="{websiteInfo.Port}"]
-                    """;
         }
     }
 }

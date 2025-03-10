@@ -21,6 +21,9 @@ namespace ASPForEnhance
         // New event for connection completion
         public event EventHandler<ConnectionCompletedEventArgs>? ConnectionCompleted;
 
+        // Event for website creation completion
+        public event EventHandler<WebsiteCreatedEventArgs>? WebsiteCreated;
+
         public bool IsConnected => sshClient?.IsConnected ?? false;
 
         public SshCommandHelper()
@@ -172,12 +175,48 @@ namespace ASPForEnhance
             worker.RunWorkerAsync(new CommandParameters { Command = "discover_websites" });
         }
 
+        // New method for creating websites asynchronously
+        public void CreateWebsiteAsync(WebsiteInfo websiteInfo, string aspDllPath, string folderPath, bool enableBlazorSignalR, string password)
+        {
+            if (!IsConnected)
+            {
+                RaiseWebsiteCreated(false, "Not connected to SSH server", null);
+                return;
+            }
+
+            if (worker.IsBusy)
+            {
+                RaiseWebsiteCreated(false, "A command is already running", null);
+                return;
+            }
+
+            // Create website parameters
+            var parameters = new WebsiteCreationParameters
+            {
+                WebsiteInfo = websiteInfo,
+                AspDllPath = aspDllPath,
+                FolderPath = folderPath,
+                EnableBlazorSignalR = enableBlazorSignalR,
+                Password = password
+            };
+
+            // Start the background worker
+            worker.RunWorkerAsync(parameters);
+        }
+
         private void Worker_DoWork(object? sender, DoWorkEventArgs e)
         {
             // Check if this is a connection operation
             if (e.Argument is ConnectionParameters connectionParams)
             {
                 e.Result = ProcessConnectionOperation(connectionParams);
+                return;
+            }
+            
+            // Check if this is a website creation operation
+            if (e.Argument is WebsiteCreationParameters websiteParams)
+            {
+                e.Result = ProcessWebsiteCreationOperation(websiteParams);
                 return;
             }
             
@@ -334,6 +373,98 @@ namespace ASPForEnhance
                 Success = false,
                 Error = "Unknown operation type"
             };
+        }
+
+        private object ProcessWebsiteCreationOperation(WebsiteCreationParameters parameters)
+        {
+            if (sshClient == null || !sshClient.IsConnected)
+            {
+                return new CommandResult { Success = false, Error = "SSH client is not connected" };
+            }
+
+            try
+            {
+                // Format the service file content based on the template
+                string serviceFileContent = GenerateServiceFileContent(parameters.WebsiteInfo, parameters.AspDllPath, parameters.FolderPath);
+                
+                // Get the service file name
+                string serviceFileName = parameters.WebsiteInfo.FileName;
+                
+                // Create a temporary file locally
+                string tempFilePath = Path.Combine(Path.GetTempPath(), serviceFileName);
+                File.WriteAllText(tempFilePath, serviceFileContent);
+                
+                // Upload the file to the server using SCP
+                using (var scpClient = new ScpClient(
+                    sshClient.ConnectionInfo.Host,
+                    sshClient.ConnectionInfo.Username,
+                    parameters.Password))
+                {
+                    scpClient.Connect();
+                    
+                    using (var fileStream = new FileStream(tempFilePath, FileMode.Open))
+                    {
+                        string remoteFilePath = $"/etc/systemd/system/{serviceFileName}";
+                        scpClient.Upload(fileStream, remoteFilePath);
+                    }
+                    
+                    // Now create and upload the Apache vhost config
+                    string apacheConfigFileName = $"{parameters.WebsiteInfo.Name}.conf";
+                    string apacheConfigContent = GenerateApacheConfigContent(parameters.WebsiteInfo, parameters.EnableBlazorSignalR);
+                    
+                    // Create a temporary apache config file
+                    string tempApacheConfigPath = Path.Combine(Path.GetTempPath(), apacheConfigFileName);
+                    File.WriteAllText(tempApacheConfigPath, apacheConfigContent);
+                    
+                    // Check if vhost directory exists, create if needed
+                    using (var cmd = sshClient.CreateCommand("sudo mkdir -p /var/local/enhance/apache/vhost_includes"))
+                    {
+                        cmd.Execute();
+                    }
+                    
+                    // Upload Apache config file
+                    using (var apacheConfigStream = new FileStream(tempApacheConfigPath, FileMode.Open))
+                    {
+                        string remoteApacheConfigPath = $"/var/local/enhance/apache/vhost_includes/{apacheConfigFileName}";
+                        scpClient.Upload(apacheConfigStream, remoteApacheConfigPath);
+                    }
+                    
+                    // Delete the temporary Apache config file
+                    File.Delete(tempApacheConfigPath);
+                    
+                    scpClient.Disconnect();
+                }
+                
+                // Delete the temporary service file
+                File.Delete(tempFilePath);
+                
+                // Reload systemd daemon and enable the service
+                using (var cmd = sshClient.CreateCommand($"sudo systemctl daemon-reload && sudo systemctl enable {serviceFileName}"))
+                {
+                    cmd.Execute();
+                }
+                
+                // Restart Apache to apply the vhost configuration
+                using (var cmd = sshClient.CreateCommand("sudo service apache2 restart"))
+                {
+                    cmd.Execute();
+                }
+                
+                // Return the result with the created website
+                return new WebsiteCreationResult
+                {
+                    Success = true,
+                    Website = parameters.WebsiteInfo
+                };
+            }
+            catch (Exception ex)
+            {
+                return new CommandResult
+                {
+                    Success = false,
+                    Error = $"Website creation failed: {ex.Message}"
+                };
+            }
         }
 
         private CommandResult DiscoverWebsitesWorker()
@@ -511,6 +642,13 @@ namespace ASPForEnhance
                 return;
             }
             
+            // Handle website creation result
+            if (e.Result is WebsiteCreationResult websiteCreationResult)
+            {
+                RaiseWebsiteCreated(websiteCreationResult.Success, websiteCreationResult.Error, websiteCreationResult.Website);
+                return;
+            }
+            
             // Handle regular command result
             if (e.Result is CommandResult result)
             {
@@ -538,6 +676,69 @@ namespace ASPForEnhance
             ConnectionCompleted?.Invoke(this, new ConnectionCompletedEventArgs(success, hostname, error));
         }
 
+        private void RaiseWebsiteCreated(bool success, string? error, WebsiteInfo? website)
+        {
+            WebsiteCreated?.Invoke(this, new WebsiteCreatedEventArgs(success, error, website));
+        }
+
+        // Methods to generate service file and Apache config - moved from MainForm.cs
+        private string GenerateServiceFileContent(WebsiteInfo websiteInfo, string aspDllPath, string folderPath)
+        {
+            // Extract the working directory (folder path) from the DLL path
+            string workingDirectory = $"/var/www/{websiteInfo.Id}/{folderPath}";
+            
+            // Extract the DLL filename
+            string dllFilename = Path.GetFileName(aspDllPath);
+            
+            // Format the service file content based on the template
+            return $"""
+                    [Service]
+                    WorkingDirectory={workingDirectory}
+                    ExecStart=/usr/bin/dotnet {workingDirectory}/{dllFilename}
+                    Restart=always
+                    # Restart service after 10 seconds if the dotnet service crashes:
+                    RestartSec=10
+                    KillSignal=SIGINT
+                    SyslogIdentifier=AspForEnhance{websiteInfo.Name.Replace(".", "")}
+                    Environment=ASPNETCORE_ENVIRONMENT=Production
+                    Environment=DOTNET_PRINT_TELEMETRY_MESSAGE=false
+                    Environment=ASPNETCORE_URLS=http://{websiteInfo.Ip}:{websiteInfo.Port}
+                    [Install]
+                    WantedBy=multi-user.target
+
+                    # [ASPForEnhance Name="{websiteInfo.Name}"]
+                    # [ASPForEnhance Id="{websiteInfo.Id}"]
+                    # [ASPForEnhance Ip="{websiteInfo.Ip}"]
+                    # [ASPForEnhance Port="{websiteInfo.Port}"]
+                    """;
+        }
+
+        private string GenerateApacheConfigContent(WebsiteInfo websiteInfo, bool enableBlazorSignalR)
+        {
+            // Base Apache configuration with proxy settings
+            string config = $$"""
+                              RequestHeader set "X-Forwarded-Proto" expr=%{REQUEST_SCHEME}
+                              ProxyPreserveHost On
+                              ProxyPass / http://{{websiteInfo.Ip}}:{{websiteInfo.Port}}/
+                              ProxyPassReverse / http://{{websiteInfo.Ip}}:{{websiteInfo.Port}}/
+
+                              """;
+
+            // Add WebSocket support for Blazor/SignalR if enabled
+            if (enableBlazorSignalR)
+            {
+                config += $$"""
+
+                            RewriteEngine On
+                            RewriteCond %{HTTP:Upgrade} =websocket [NC]
+                            RewriteRule /(.*) ws://{{websiteInfo.Ip}}:{{websiteInfo.Port}}/$1 [P,L]
+
+                            """;
+            }
+
+            return config;
+        }
+
         // Helper classes for parameters and results
         private class CommandParameters
         {
@@ -552,6 +753,16 @@ namespace ASPForEnhance
             public string Username { get; set; } = string.Empty;
             public string Password { get; set; } = string.Empty;
             public int Port { get; set; } = 22;
+        }
+
+        private class WebsiteCreationParameters
+        {
+            public WebsiteInfo WebsiteInfo { get; set; } = new WebsiteInfo();
+            public string AspDllPath { get; set; } = string.Empty;
+            public string FolderPath { get; set; } = string.Empty;
+            public bool EnableBlazorSignalR { get; set; }
+
+            public string Password { get; set; } = string.Empty;
         }
 
         private enum OperationType
@@ -579,6 +790,12 @@ namespace ASPForEnhance
         private class WebsiteDiscoveryResult : CommandResult
         {
             public List<WebsiteInfo>? Websites { get; set; }
+        }
+
+        // Result class for website creation
+        private class WebsiteCreationResult : CommandResult
+        {
+            public WebsiteInfo? Website { get; set; }
         }
     }
 
@@ -634,6 +851,21 @@ namespace ASPForEnhance
             Success = success;
             Hostname = hostname;
             Error = error;
+        }
+    }
+
+    // New event args class for website creation completion
+    public class WebsiteCreatedEventArgs : EventArgs
+    {
+        public bool Success { get; }
+        public string? Error { get; }
+        public WebsiteInfo? Website { get; }
+        
+        public WebsiteCreatedEventArgs(bool success, string? error, WebsiteInfo? website)
+        {
+            Success = success;
+            Error = error;
+            Website = website;
         }
     }
 }
