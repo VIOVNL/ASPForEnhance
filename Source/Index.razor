@@ -1,0 +1,665 @@
+@page "/"
+@using ASPForEnhance.SshHelper
+@using ASPForEnhance.Components.Dialogs
+@using ASPForEnhance.Services
+@inject ServerService ServerService
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+@inject IJSRuntime JSRuntime
+<RadzenComponents />
+
+<RadzenCard>
+    <RadzenRow JustifyContent="JustifyContent.Center">
+
+        @if (selectedServer != null)
+        {
+            <RadzenButton Size="ButtonSize.ExtraSmall" Icon="delete" Text="Delete" ButtonStyle="ButtonStyle.Warning" Click="@(() => DeleteServer(selectedServer))" />
+            <RadzenButton Size="ButtonSize.ExtraSmall" Icon="edit" Text="Edit" ButtonStyle="ButtonStyle.Secondary" Click="@(() => OpenEditServerDialog(selectedServer))" />
+        }
+        <RadzenButton Size="ButtonSize.ExtraSmall" ButtonStyle="ButtonStyle.Primary" Icon="add_circle_outline" Text="Add Server" Click="@OpenAddServerDialog" />
+
+        <RadzenDropDown TValue="string" Data="@ServerService.Servers" TextProperty="Name" ValueProperty="Name"
+                        Placeholder="Select Server" @bind-Value="@selectedServerName" Change="@OnServerSelected"
+                        AllowClear="true" Style="width: 200px;" />
+        @if (selectedServer != null)
+        {
+            @if (!isConnected)
+            {
+                <RadzenButton Size="ButtonSize.ExtraSmall" Icon="link" Text="Connect" ButtonStyle="ButtonStyle.Success" Click="@ConnectToServer"
+                              Disabled="@isLoading" />
+            }
+            else
+            {
+                <RadzenButton Size="ButtonSize.ExtraSmall" Icon="link_off" Text="Disconnect" ButtonStyle="ButtonStyle.Danger" Click="@DisconnectFromServer"
+                              Disabled="@isLoading" />
+            }
+        }
+
+    </RadzenRow>
+
+
+</RadzenCard>
+
+<div class="mt-3">
+    <RadzenCard>
+        <RadzenRow class="pb-2">
+            <RadzenColumn Size="2">
+                <h3>Websites</h3>
+                @if (isConnected)
+                {
+                    <div class="d-flex align-items-center">
+                        <div class="badge bg-success">Connected to @selectedServer.Hostname</div>
+                    </div>
+                }
+            </RadzenColumn>
+            <RadzenColumn Size="10">
+                <RadzenRow JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center">
+                    @if (isConnected)
+                    {
+                        <RadzenButton Size="ButtonSize.Medium" Text="Create Website" Icon="add" ButtonStyle="ButtonStyle.Success" Click="@OpenCreateWebsiteDialog"
+                                      Disabled="@isLoading" class="me-2" />
+                        <RadzenButton Size="ButtonSize.Medium" Text="Refresh Websites" Icon="refresh" ButtonStyle="ButtonStyle.Info" Click="@FetchWebsites"
+                                      Disabled="@isLoading" />
+                    }
+                </RadzenRow>
+
+
+            </RadzenColumn>
+        </RadzenRow>
+
+        @if (isLoading)
+        {
+            <div class="d-flex justify-content-center my-5">
+                <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" Style="width: 50 %; height: 8px;" />
+            </div>
+        }
+        else if (!isConnected)
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Dark" AllowClose="false">
+                Please connect to a server to view websites.
+            </RadzenAlert>
+
+        }
+        else if (websites != null && websites.Count > 0)
+        {
+            <RadzenDataGrid class="mt-2" TItem="WebsiteInfo" Data="@websites" AllowFiltering="false" AllowSorting="false" AllowPaging="false">
+                <Columns>
+                    <RadzenDataGridColumn TItem="WebsiteInfo" Property="Name" Title="Name" />
+                    <RadzenDataGridColumn TItem="WebsiteInfo" Property="Ip" Title="IP" />
+                    <RadzenDataGridColumn TItem="WebsiteInfo" Property="Port" Title="Port" />
+
+                    <RadzenDataGridColumn TItem="WebsiteInfo" Title="State" TextAlign="TextAlign.Center">
+                        <Template Context="website">
+                            @if (serviceStatuses.TryGetValue(website.FileName, out var status))
+                            {
+                                @if (status.State.ToLower() == "active")
+                                {
+                                    <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="@status.State" />
+                                }
+                                else if (status.State.ToLower() == "inactive")
+                                {
+                                    <RadzenBadge BadgeStyle="BadgeStyle.Warning" Text="@status.State" />
+                                }
+                                else
+                                {
+                                    <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="@status.State" />
+                                }
+                            }
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="WebsiteInfo" Title="Enabled" TextAlign="TextAlign.Center">
+                        <Template Context="website">
+                            @if (serviceStatuses.TryGetValue(website.FileName, out var status))
+                            {
+                                @if (status.IsEnabled)
+                                {
+                                    <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="Yes" />
+                                }
+                                else
+                                {
+                                    <RadzenBadge BadgeStyle="BadgeStyle.Warning" Text="No" />
+                                }
+                            }
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="WebsiteInfo" Title="Memory" TextAlign="TextAlign.Center">
+                        <Template Context="website">
+                            @if (serviceStatuses.TryGetValue(website.FileName, out var status) && !string.IsNullOrEmpty(status.MemoryUsage))
+                            {
+                                @status.MemoryUsage
+                            }
+                            else
+                            {
+                                <span>-</span>
+                            }
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="WebsiteInfo" Title="Peak Memory" TextAlign="TextAlign.Center">
+                        <Template Context="website">
+                            @if (serviceStatuses.TryGetValue(website.FileName, out var status) && !string.IsNullOrEmpty(status.PeakMemoryUsage))
+                            {
+                                @status.PeakMemoryUsage
+                            }
+                            else
+                            {
+                                <span>-</span>
+                            }
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="WebsiteInfo" Title="CPU" TextAlign="TextAlign.Center">
+                        <Template Context="website">
+                            @if (serviceStatuses.TryGetValue(website.FileName, out var status) && !string.IsNullOrEmpty(status.CpuUsage))
+                            {
+                                @status.CpuUsage
+                            }
+                            else
+                            {
+                                <span>-</span>
+                            }
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="WebsiteInfo" Title="Actions" TextAlign="TextAlign.Center" Width="200px" Filterable="false" Sortable="false" Frozen="true" FrozenPosition="FrozenColumnPosition.Right">
+                        <Template Context="website">
+                            <RadzenButton Icon="settings" ButtonStyle="ButtonStyle.Warning" Size="ButtonSize.Small"
+                                          Click="@(args => OpenWebsiteDetailsDialog(website))" />
+                            <RadzenButton Icon="replay" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small"
+                                          Click="@(args => RestartService(website))" Title="Restart" />
+
+                            <RadzenButton Icon="@GetServiceRunStateIcon(website)" ButtonStyle="@GetServiceRunStateStyle(website)" Size="ButtonSize.Small"
+                                          Click="@(args => ToggleServiceRunState(website))"
+                                          Title="@GetServiceRunStateTitle(website)" />
+
+                            <RadzenButton Icon="@GetServiceToggleIcon(website)" ButtonStyle="@GetServiceToggleStyle(website)" Size="ButtonSize.Small"
+                                          Click="@(args => ToggleServiceEnabledStatus(website))"
+                                          Title="@GetServiceToggleTitle(website)" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+        }
+        else if (isConnected)
+        {
+
+
+            <RadzenAlert AlertStyle="AlertStyle.Dark" AllowClose="false">
+                No websites found. You can create a new website.
+            </RadzenAlert>
+        }
+    </RadzenCard>
+</div>
+
+@code {
+    private ServerInfo? selectedServer;
+    private string? selectedServerName;
+    private List<WebsiteInfo> websites = new();
+    private bool isConnected;
+    private bool isLoading;
+    // Dictionary to track service status for each website
+    private Dictionary<string, bool> serviceEnabledStatus = new();
+    // Dictionary to track service running state for each website
+    private Dictionary<string, string> serviceRunningState = new();
+    // Dictionary to track complete ServiceStatus objects for each website
+    private Dictionary<string, ServiceStatus> serviceStatuses = new();
+    private System.Threading.Timer? refreshTimer;
+    private int refreshIntervalSeconds = 360; // 1 minute refresh interval
+
+    protected override void OnInitialized()
+    {
+        ServerService.LoadServers();
+        DialogService.OnClose += DialogServiceOnOnClose;
+    }
+
+    private async void DialogServiceOnOnClose(dynamic obj)
+    {
+        try
+        {
+            await FetchWebsites();
+        }
+        catch (Exception e)
+        {
+            throw; // TODO handle exception
+        }
+    }
+
+    private async Task OnServerSelected(object value)
+    {
+        // If we were connected, disconnect first
+        if (isConnected)
+        {
+            await DisconnectFromServer();
+        }
+
+        // Clear websites when changing server
+        websites = new List<WebsiteInfo>();
+
+        // Find the selected server by name
+        if (value != null)
+        {
+            string serverName = value.ToString();
+            selectedServer = ServerService.Servers.FirstOrDefault(s => s.Name == serverName);
+            selectedServerName = serverName;
+        }
+        else
+        {
+            selectedServer = null;
+            selectedServerName = null;
+        }
+    }
+
+    private void OpenAddServerDialog()
+    {
+        var parameters = new Dictionary<string, object>
+        {
+            { "Title", "Add Server" },
+            { "Server", new ServerInfo() },
+            { "OnSave", EventCallback.Factory.Create<ServerInfo>(this, AddServer) }
+        };
+
+        DialogService.Open<ServerDialog>("Add Server", parameters);
+    }
+
+    private void OpenEditServerDialog(ServerInfo server)
+    {
+        var parameters = new Dictionary<string, object>
+        {
+            { "Title", "Edit Server" },
+            {
+                "Server", new ServerInfo
+                {
+                    Name = server.Name,
+                    Hostname = server.Hostname,
+                    Username = server.Username,
+                    Password = server.Password,
+                    Port = server.Port
+                }
+            },
+            { "OnSave", EventCallback.Factory.Create<ServerInfo>(this, EditServer) }
+        };
+
+        DialogService.Open<ServerDialog>("Edit Server", parameters);
+    }
+
+    private void AddServer(ServerInfo server)
+    {
+        ServerService.AddServer(server);
+        selectedServer = server;
+        selectedServerName = server.Name;
+        StateHasChanged();
+    }
+
+    private void EditServer(ServerInfo server)
+    {
+        int index = ServerService.Servers.FindIndex(s => s.Name == selectedServer!.Name);
+        if (index >= 0)
+        {
+            ServerService.UpdateServer(index, server);
+            selectedServer = server;
+            selectedServerName = server.Name;
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task DeleteServer(ServerInfo server)
+    {
+        // Confirm deletion
+        var result = await DialogService.Confirm($"Are you sure you want to delete server '{server.Name}'?", "Confirm Delete",
+            new ConfirmOptions { OkButtonText = "Yes", CancelButtonText = "No" });
+
+        if (result != true) return;
+
+        // If we are connected to this server, disconnect first
+        if (isConnected && selectedServer == server)
+        {
+            await DisconnectFromServer();
+        }
+
+        int index = ServerService.Servers.FindIndex(s => s.Name == server.Name);
+        if (index >= 0)
+        {
+            ServerService.DeleteServer(index);
+            selectedServer = null;
+            selectedServerName = null;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ConnectToServer()
+    {
+        if (selectedServer == null) return;
+
+        try
+        {
+            isLoading = true;
+            StateHasChanged();
+
+            var result = await ServerService.ConnectAsync(selectedServer);
+
+            if (result.Success)
+            {
+                isConnected = true;
+                NotificationService.Notify(NotificationSeverity.Success, "Connected", $"Connected to {selectedServer.Name}");
+                await FetchWebsites();
+
+                // Start periodic refresh when connected
+                StartPeriodicRefresh();
+            }
+            else
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Connection Error", result.Error ?? "Unknown error");
+            }
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task DisconnectFromServer()
+    {
+        try
+        {
+            isLoading = true;
+            StateHasChanged();
+
+            var result = await ServerService.DisconnectAsync();
+
+            if (result.Success)
+            {
+                isConnected = false;
+                websites = new List<WebsiteInfo>();
+                NotificationService.Notify(NotificationSeverity.Info, "Disconnected", "Disconnected from server");
+
+                // Stop periodic refresh when disconnected
+                StopPeriodicRefresh();
+            }
+            else
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Disconnection Error", result.Error ?? "Unknown error");
+            }
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void StartPeriodicRefresh()
+    {
+        // Stop any existing timer first
+        StopPeriodicRefresh();
+
+        // Create a new timer that triggers every minute
+        refreshTimer = new System.Threading.Timer(
+            async _ => await InvokeRefresh(),
+            null,
+            TimeSpan.FromSeconds(refreshIntervalSeconds),  // Initial delay
+            TimeSpan.FromSeconds(refreshIntervalSeconds)); // Interval
+    }
+
+    private void StopPeriodicRefresh()
+    {
+        if (refreshTimer != null)
+        {
+            refreshTimer.Dispose();
+            refreshTimer = null;
+        }
+    }
+
+    private async Task InvokeRefresh()
+    {
+        if (!isLoading && isConnected)
+        {
+            try
+            {
+                // Use InvokeAsync to safely call UI-updating code from a background thread
+                await InvokeAsync(async () =>
+                {
+                    await FetchWebsites();
+
+                    // Notify user about the refresh in a less intrusive way (optional)
+                    await JSRuntime.InvokeVoidAsync("console.log", "Auto-refreshed website statuses");
+                });
+            }
+            catch (Exception ex)
+            {
+                // Log any errors that occur during refresh
+                await JSRuntime.InvokeVoidAsync("console.error", "Error refreshing: " + ex.Message);
+            }
+        }
+    }
+
+
+    private async Task FetchWebsites()
+    {
+        try
+        {
+            isLoading = true;
+            StateHasChanged();
+
+            var result = await ServerService.GetWebsitesAsync();
+
+            if (result.Success && result.Websites != null)
+            {
+                websites = result.Websites;
+
+                // Get status for each website
+                foreach (var website in websites)
+                {
+                    var statusResult = await ServerService.GetServiceStatusAsync(website.FileName);
+                    if (statusResult.Success && statusResult.Status != null)
+                    {
+                        serviceEnabledStatus[website.FileName] = statusResult.Status.IsEnabled;
+                        serviceRunningState[website.FileName] = statusResult.Status.State.ToLower();
+                        serviceStatuses[website.FileName] = statusResult.Status; // Store the full status object
+                    }
+                }
+            }
+            else
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Error", result.Error ?? "Failed to fetch websites");
+            }
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void OpenWebsiteDetailsDialog(WebsiteInfo website)
+    {
+        var parameters = new Dictionary<string, object>
+        {
+            { "Website", website },
+            { "ServerService", ServerService }
+        };
+
+        DialogService.Open<WebsiteDetailsDialog>($"Website: {website.Name}", parameters,
+            new DialogOptions { Width = "1000px", Height = "700px" });
+
+    }
+
+    private async Task RestartService(WebsiteInfo website)
+    {
+        try
+        {
+            isLoading = true;
+            StateHasChanged();
+
+            var result = await ServerService.RestartServiceAsync(website.FileName);
+
+            if (result.Success)
+            {
+                NotificationService.Notify(NotificationSeverity.Success, "Service Restarted", $"Successfully restarted {website.Name}");
+            }
+            else
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Error", result.Error ?? "Failed to restart service");
+            }
+        }
+        finally
+        {
+            isLoading = false;
+            await FetchWebsites();
+        }
+    }
+
+
+    private void OpenCreateWebsiteDialog()
+    {
+        if (!isConnected || selectedServer == null)
+        {
+            NotificationService.Notify(NotificationSeverity.Warning, "Not Connected", "Please connect to a server first");
+            return;
+        }
+
+        var parameters = new Dictionary<string, object>
+        {
+            { "ServerService", ServerService },
+            { "OnCreate", EventCallback.Factory.Create<WebsiteInfo>(this, OnWebsiteCreated) }
+        };
+
+        DialogService.Open<CreateWebsiteDialog>("Create Website", parameters,
+            new DialogOptions { Width = "900px", Height = "520px", CloseDialogOnEsc = false });
+    }
+
+    private async Task OnWebsiteCreated(WebsiteInfo website)
+    {
+        NotificationService.Notify(NotificationSeverity.Success, "Website Created", $"Successfully created website {website.Name}");
+        await FetchWebsites();
+    }
+
+    private string GetServiceToggleIcon(WebsiteInfo website)
+    {
+        return serviceEnabledStatus.TryGetValue(website.FileName, out bool isEnabled) && isEnabled ?
+            "block" : "check_circle";
+    }
+
+    private ButtonStyle GetServiceToggleStyle(WebsiteInfo website)
+    {
+        return serviceEnabledStatus.TryGetValue(website.FileName, out bool isEnabled) && isEnabled ?
+            ButtonStyle.Primary : ButtonStyle.Info;
+    }
+
+    private string GetServiceToggleTitle(WebsiteInfo website)
+    {
+        return serviceEnabledStatus.TryGetValue(website.FileName, out bool isEnabled) && isEnabled ?
+            "Disable" : "Enable";
+    }
+
+    private async Task ToggleServiceEnabledStatus(WebsiteInfo website)
+    {
+        try
+        {
+            isLoading = true;
+            StateHasChanged();
+
+            bool isCurrentlyEnabled = false;
+            if (serviceEnabledStatus.TryGetValue(website.FileName, out bool status))
+            {
+                isCurrentlyEnabled = status;
+            }
+
+            ServiceOperationResult result;
+            if (isCurrentlyEnabled)
+            {
+                result = await ServerService.DisableServiceAsync(website.FileName);
+                if (result.Success)
+                {
+                    serviceEnabledStatus[website.FileName] = false;
+                    NotificationService.Notify(NotificationSeverity.Success, "Service Disabled", $"Successfully disabled {website.Name}");
+                }
+            }
+            else
+            {
+                result = await ServerService.EnableServiceAsync(website.FileName);
+                if (result.Success)
+                {
+                    serviceEnabledStatus[website.FileName] = true;
+                    NotificationService.Notify(NotificationSeverity.Success, "Service Enabled", $"Successfully enabled {website.Name}");
+                }
+            }
+
+            if (!result.Success)
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Error", result.Error ?? "Failed to change service status");
+            }
+        }
+        finally
+        {
+            isLoading = false;
+            await FetchWebsites();
+        }
+    }
+
+    private string GetServiceRunStateIcon(WebsiteInfo website)
+    {
+        return serviceRunningState.TryGetValue(website.FileName, out string state) && state == "active" ?
+            "stop" : "play_arrow";
+    }
+
+    private ButtonStyle GetServiceRunStateStyle(WebsiteInfo website)
+    {
+        return serviceRunningState.TryGetValue(website.FileName, out string state) && state == "active" ?
+            ButtonStyle.Danger : ButtonStyle.Success;
+    }
+
+    private string GetServiceRunStateTitle(WebsiteInfo website)
+    {
+        return serviceRunningState.TryGetValue(website.FileName, out string state) && state == "active" ?
+            "Stop" : "Start";
+    }
+
+    private async Task ToggleServiceRunState(WebsiteInfo website)
+    {
+        try
+        {
+            isLoading = true;
+            StateHasChanged();
+
+            string currentState = "inactive";
+            if (serviceRunningState.TryGetValue(website.FileName, out string state))
+            {
+                currentState = state;
+            }
+
+            ServiceOperationResult result;
+            if (currentState == "active")
+            {
+                result = await ServerService.StopServiceAsync(website.FileName);
+                if (result.Success)
+                {
+                    serviceRunningState[website.FileName] = "inactive";
+                    NotificationService.Notify(NotificationSeverity.Success, "Service Stopped", $"Successfully stopped {website.Name}");
+                }
+            }
+            else
+            {
+                result = await ServerService.StartServiceAsync(website.FileName);
+                if (result.Success)
+                {
+                    serviceRunningState[website.FileName] = "active";
+                    NotificationService.Notify(NotificationSeverity.Success, "Service Started", $"Successfully started {website.Name}");
+                }
+            }
+
+            if (!result.Success)
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Error", result.Error ?? "Failed to change service running state");
+            }
+        }
+        finally
+        {
+            isLoading = false;
+            await FetchWebsites();
+        }
+    }
+}

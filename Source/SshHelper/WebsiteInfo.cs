@@ -1,4 +1,4 @@
-namespace ASPForEnhance
+namespace ASPForEnhance.SshHelper
 {
     public class WebsiteInfo
     {

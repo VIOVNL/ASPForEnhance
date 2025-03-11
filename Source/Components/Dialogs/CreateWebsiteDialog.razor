@@ -1,0 +1,236 @@
+@using ASPForEnhance.SshHelper
+@using ASPForEnhance.Services
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+
+<RadzenTemplateForm TItem="WebsiteModel" Data="@model" Submit="@CreateWebsite">
+    <RadzenRow Style="margin-bottom: 1rem;" AlignItems="AlignItems.Center">
+        <RadzenColumn Size="2" Style="padding-right: 0;">
+            <RadzenText TextStyle="TextStyle.Subtitle1">Domain Name:</RadzenText>
+        </RadzenColumn>
+        <RadzenColumn Size="10" Style="padding-left: 0;">
+            <RadzenTextBox @bind-Value="@model.Name" Style="width: 100%; margin-bottom: 0.5rem;" Name="Name" AutoComplete="false" Placeholder="website.com" />
+            <RadzenRequiredValidator Component="Name" Text="Domain name is required" />
+        </RadzenColumn>
+    </RadzenRow>
+
+    <RadzenRow Style="margin-bottom: 0rem;" AlignItems="AlignItems.Center">
+        <RadzenColumn Size="2" Style="padding-right: 0;">
+            <RadzenText TextStyle="TextStyle.Subtitle1">Full path:</RadzenText>
+        </RadzenColumn>
+        <RadzenColumn Size="10" Style="padding-left: 0;">
+            <RadzenTextBox @bind-Value="@model.FullPath" Style="width: 100%; margin-bottom: 0.5rem;" Name="FullPath" AutoComplete="false"
+                           Placeholder="/var/www/677c5d2b-d623-450a-81c5-ad3dee239df4/public_html/AspProject.dll" />
+            <RadzenRequiredValidator Component="FullPath" Text="Full path is required" />
+        </RadzenColumn>
+    </RadzenRow>
+    <RadzenRow Style="margin-bottom: 1rem;" AlignItems="AlignItems.Center">
+        <RadzenColumn Size="2" Style="padding-right: 0;">
+        </RadzenColumn>
+        <RadzenColumn Size="10" Style="padding-left: 0;">
+            <RadzenText TextStyle="TextStyle.Caption">
+                Path format should be: /var/www/[UUID]/[folder]/[dll-file]
+            </RadzenText>
+        </RadzenColumn>
+    </RadzenRow>
+
+
+    <RadzenRow Style="margin-bottom: 1rem;" AlignItems="AlignItems.Center">
+        <RadzenColumn Size="2" Style="padding-right: 0;">
+        </RadzenColumn>
+        <RadzenColumn Size="10" Style="padding-left: 0;">
+            <RadzenCheckBox @bind-Value="@model.EnableBlazorSignalR" Name="EnableBlazorSignalR" />
+            <RadzenLabel Component="EnableBlazorSignalR" Text="Enable Blazor/SignalR" Style="margin-left: 8px;" />
+        </RadzenColumn>
+    </RadzenRow>
+
+    <RadzenRow Style="margin-bottom: 1rem;" AlignItems="AlignItems.Center">
+        <RadzenColumn Size="2" Style="padding-right: 0;">
+        </RadzenColumn>
+        <RadzenColumn Size="10" Style="padding-left: 0;">
+            <RadzenText TextStyle="TextStyle.Body1">Port: @nextPort (Auto-assigned)</RadzenText>
+        </RadzenColumn>
+    </RadzenRow>
+
+    <RadzenRow Style="margin-bottom: 1rem;">
+        <RadzenColumn Style="display: flex; justify-content: flex-end;">
+            <RadzenButton ButtonType="ButtonType.Button" Text="Cancel" ButtonStyle="ButtonStyle.Light" Click="@Cancel"
+                          Disabled="@isCreating" Style="margin-right: 0.5rem;" />
+            <RadzenButton ButtonType="ButtonType.Submit" Text="Save" ButtonStyle="ButtonStyle.Primary"
+                          Disabled="@isCreating" />
+        </RadzenColumn>
+    </RadzenRow>
+
+    @if (isCreating)
+    {
+        <RadzenRow Style="margin-top: 1rem;">
+            <RadzenColumn>
+                <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+                <div class="text-center mt-2">Creating website, please wait...</div>
+            </RadzenColumn>
+        </RadzenRow>
+    }
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <RadzenRow Style="margin-top: 1rem;">
+            <RadzenColumn>
+                <RadzenAlert AlertStyle="AlertStyle.Danger" ShowIcon="true" AllowClose="true" Variant="Variant.Flat"
+                             Title="Error" Size="AlertSize.Medium" Shade="Shade.Default">
+                    @errorMessage
+                </RadzenAlert>
+            </RadzenColumn>
+        </RadzenRow>
+    }
+</RadzenTemplateForm>
+
+
+
+@code {
+    [Parameter]
+    public ServerService ServerService { get; set; } = default!;
+
+    [Parameter]
+    public EventCallback<WebsiteInfo> OnCreate { get; set; }
+
+    private WebsiteModel model = new();
+    private bool isCreating = false;
+    private string? errorMessage;
+    private int nextPort = 5000;
+    private List<WebsiteInfo> currentWebsites = new();
+
+    private class WebsiteModel
+    {
+        public string Name { get; set; } = string.Empty;
+        public string FullPath { get; set; } = string.Empty;
+        public bool EnableBlazorSignalR { get; set; } = false;
+        public string Password { get; set; } = string.Empty;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Load current websites
+        var result = await ServerService.GetWebsitesAsync();
+        if (result.Success && result.Websites != null)
+        {
+            currentWebsites = result.Websites;
+        }
+
+        // Determine the next available port
+        nextPort = DetermineNextAvailablePort();
+        model.Password = ServerService.SshPassword;
+    }
+
+    private int DetermineNextAvailablePort()
+    {
+        const int defaultStartingPort = 5020;
+
+        if (currentWebsites == null || currentWebsites.Count == 0)
+            return defaultStartingPort;
+
+        // Find the highest port in use
+        int highestPort = defaultStartingPort - 1; // Default if no ports are in use
+
+        foreach (var website in currentWebsites)
+        {
+            if (int.TryParse(website.Port, out int port))
+            {
+                if (port > highestPort)
+                    highestPort = port;
+            }
+        }
+
+        // Return the next available port (highest + 1)
+        return highestPort + 1;
+    }
+
+    private bool ParseFullPath(string fullPath, out string id, out string folderPath, out string dllFileName)
+    {
+        id = string.Empty;
+        folderPath = string.Empty;
+        dllFileName = string.Empty;
+
+        // Use same regex pattern as the original form
+        var regex = new System.Text.RegularExpressions.Regex(@"^/var/www/(?<id>[a-f0-9\-]+)/(?<folderPath>[^/]+)/(?<dllName>[^/]+)$");
+        var match = regex.Match(fullPath);
+
+        if (match.Success)
+        {
+            id = match.Groups["id"].Value;
+            folderPath = match.Groups["folderPath"].Value;
+            dllFileName = match.Groups["dllName"].Value;
+            return true;
+        }
+
+        errorMessage = "Invalid full path format. Format should be: /var/www/[UUID]/[folder]/[dll-file]";
+        return false;
+    }
+
+    private async Task CreateWebsite()
+    {
+        try
+        {
+            errorMessage = null;
+
+            if (string.IsNullOrWhiteSpace(model.Name) || string.IsNullOrWhiteSpace(model.FullPath))
+            {
+                errorMessage = "Please fill in all required fields.";
+                return;
+            }
+
+            // Parse the path just like in the original form
+            if (!ParseFullPath(model.FullPath.Trim(), out string id, out string folderPath, out string dllFileName))
+            {
+                return; // Error message is already set by ParseFullPath
+            }
+
+            isCreating = true;
+            StateHasChanged();
+
+            // Create website info similar to how it was done in the original form
+            var websiteInfo = new WebsiteInfo
+                {
+                    Name = model.Name.Trim(),
+                    Id = id,
+                    Ip = ServerService.SshIp, 
+                    Port = nextPort.ToString(),
+                    FileName = $"aspforenhance-{model.Name.ToLower().Replace('.', '-')}.service"
+                };
+
+            // Call the ServerService to create the website
+            var result = await ServerService.CreateWebsiteAsync(
+                websiteInfo,
+                dllFileName,
+                folderPath,
+                model.EnableBlazorSignalR,
+                model.Password
+            );
+
+            if (result.Success && result.Website != null)
+            {
+                // Notify parent component
+                await OnCreate.InvokeAsync(result.Website);
+                DialogService.Close();
+            }
+            else
+            {
+                errorMessage = result.Error ?? "Failed to create website. Please check your inputs.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An unexpected error occurred: {ex.Message}";
+        }
+        finally
+        {
+            isCreating = false;
+            StateHasChanged();
+        }
+    }
+
+    private void Cancel()
+    {
+        DialogService.Close();
+    }
+}
+

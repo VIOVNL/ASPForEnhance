@@ -1,0 +1,369 @@
+@using ASPForEnhance.Services
+@using ASPForEnhance.SshHelper
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+@inject IJSRuntime JSRuntime
+
+<RadzenTabs>
+    <Tabs>
+        <RadzenTabsItem Text="Info">
+            <RadzenCard class="mt-3">
+                <div class="row mb-2">
+                    <div class="col-4 font-weight-bold">Name:</div>
+                    <div class="col-8">@Website.Name</div>
+                </div>
+                <div class="row mb-2">
+                    <div class="col-4 font-weight-bold">ID:</div>
+                    <div class="col-8">@Website.Id</div>
+                </div>
+                <div class="row mb-2">
+                    <div class="col-4 font-weight-bold">IP Address:</div>
+                    <div class="col-8">@Website.Ip</div>
+                </div>
+                <div class="row mb-2">
+                    <div class="col-4 font-weight-bold">Port:</div>
+                    <div class="col-8">@Website.Port</div>
+                </div>
+                <div class="row mb-2">
+                    <div class="col-4 font-weight-bold">Service File:</div>
+                    <div class="col-8">@Website.FileName</div>
+                </div>
+            </RadzenCard>
+        </RadzenTabsItem>
+
+        <RadzenTabsItem Text="Status">
+            <RadzenCard class="mt-3">
+                <div class="d-flex justify-content-between mb-3">
+                    <RadzenButton Text="Refresh Status" Icon="refresh" ButtonStyle="ButtonStyle.Primary"
+                                  Click="@GetServiceStatus" Disabled="@isLoading"/>
+                </div>
+
+                @if (isLoading)
+                {
+                    <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" Style="height: 8px;"/>
+                }
+                else if (serviceStatus != null)
+                {
+                    <div class="row mb-2">
+                        <div class="col-4 font-weight-bold">Status:</div>
+                        <div class="col-8">
+                            @if (serviceStatus.State.ToLower() == "active")
+                            {
+                                <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="@serviceStatus.State"/>
+                            }
+                            else if (serviceStatus.State.ToLower() == "inactive")
+                            {
+                                <RadzenBadge BadgeStyle="BadgeStyle.Warning" Text="@serviceStatus.State"/>
+                            }
+                            else
+                            {
+                                <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="@serviceStatus.State"/>
+                            }
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-4 font-weight-bold">Enabled:</div>
+                        <div class="col-8">
+                            @if (serviceStatus.IsEnabled)
+                            {
+                                <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="Yes"/>
+                            }
+                            else
+                            {
+                                <RadzenBadge BadgeStyle="BadgeStyle.Warning" Text="No"/>
+                            }
+                        </div>
+                    </div>
+                    @if (serviceStatus.PID.HasValue)
+                    {
+                        <div class="row mb-2">
+                            <div class="col-4 font-weight-bold">PID:</div>
+                            <div class="col-8">@serviceStatus.PID</div>
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(serviceStatus.MemoryUsage))
+                    {
+                        <div class="row mb-2">
+                            <div class="col-4 font-weight-bold">Memory:</div>
+                            <div class="col-8">@serviceStatus.MemoryUsage</div>
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(serviceStatus.PeakMemoryUsage))
+                    {
+                        <div class="row mb-2">
+                            <div class="col-4 font-weight-bold">Peak Memory:</div>
+                            <div class="col-8">@serviceStatus.PeakMemoryUsage</div>
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(serviceStatus.CpuUsage))
+                    {
+                        <div class="row mb-2">
+                            <div class="col-4 font-weight-bold">CPU:</div>
+                            <div class="col-8">@serviceStatus.CpuUsage</div>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="alert alert-info">Click "Refresh Status" to view service status.</div>
+                }
+            </RadzenCard>
+        </RadzenTabsItem>
+
+        <RadzenTabsItem Text="Logs">
+            <RadzenCard >
+                <div class="d-flex justify-content-between mb-3">
+                    <RadzenButton Text="Refresh Logs" Icon="refresh" ButtonStyle="ButtonStyle.Primary"
+                                  Click="@GetServiceLogs" Disabled="@isLoading"/>
+                    <RadzenNumeric @bind-Value="@logLines" Min="10" Max="1000" Step="10"/>
+                </div>
+
+                @if (isLoading)
+                {
+                    <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" Style="height: 8px;"/>
+                }
+                else if (!string.IsNullOrEmpty(serviceLogs))
+                {
+                    <div id="logContainer" style="width: 100%; height: 400px; overflow-y: auto; background-color: black; color: greenyellow; font-family: monospace; font-size: 12px; padding: 10px;">
+                        <pre>@serviceLogs</pre>
+                    </div>
+                }
+                else
+                {
+                    <RadzenAlert AlertStyle="AlertStyle.Dark" AllowClose="false">
+                        Click "Refresh Logs" to view service logs.
+                    </RadzenAlert>
+                }
+            </RadzenCard>
+        </RadzenTabsItem>
+
+        <RadzenTabsItem Text="Actions">
+            <RadzenCard class="mt-3">
+                <div class="d-flex flex-column">
+                    <RadzenButton Text="Restart Service" Icon="replay" ButtonStyle="ButtonStyle.Secondary"
+                                  Click="@RestartService" Disabled="@isLoading" class="mb-2"/>
+                    
+                    @if (serviceStatus != null && serviceStatus.State.ToLower() == "active")
+                    {
+                        <RadzenButton Text="Stop Service" Icon="stop" ButtonStyle="ButtonStyle.Danger"
+                                      Click="@StopService" Disabled="@isLoading" class="mb-2"/>
+                    }
+                    else
+                    {
+                        <RadzenButton Text="Start Service" Icon="play_arrow" ButtonStyle="ButtonStyle.Success"
+                                      Click="@StartService" Disabled="@isLoading" class="mb-2"/>
+                    }
+                    
+                    @if (serviceStatus != null && serviceStatus.IsEnabled)
+                    {
+                        <RadzenButton Text="Disable Service" Icon="block" ButtonStyle="ButtonStyle.Primary"
+                                      Click="@DisableService" Disabled="@isLoading" class="mb-2"/>
+                    }
+                    else
+                    {
+                        <RadzenButton Text="Enable Service" Icon="check_circle" ButtonStyle="ButtonStyle.Info"
+                                      Click="@EnableService" Disabled="@isLoading" class="mb-2"/>
+                    }
+                </div>
+            </RadzenCard>
+        </RadzenTabsItem>
+    </Tabs>
+</RadzenTabs>
+
+@code {
+    [Parameter] public WebsiteInfo Website { get; set; } = new();
+
+    [Parameter] public ServerService ServerService { get; set; } = null!;
+
+    private ServiceStatus? serviceStatus;
+    private string? serviceLogs;
+    private bool isLoading;
+    private int logLines = 100;
+
+    private async Task GetServiceStatus()
+    {
+        try
+        {
+            isLoading = true;
+            StateHasChanged();
+
+            var result = await ServerService.GetServiceStatusAsync(Website.FileName);
+
+            if (result.Success && result.Status != null)
+            {
+                serviceStatus = result.Status;
+            }
+            else
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Error", result.Error ?? "Failed to get service status");
+            }
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task GetServiceLogs()
+    {
+        try
+        {
+            isLoading = true;
+            StateHasChanged();
+
+            var result = await ServerService.GetServiceLogsAsync(Website.FileName, logLines);
+
+            if (result.Success)
+            {
+                serviceLogs = result.Logs;
+            }
+            else
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Error", result.Error ?? "Failed to get service logs");
+            }
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task RestartService()
+    {
+        try
+        {
+            isLoading = true;
+            StateHasChanged();
+
+            var result = await ServerService.RestartServiceAsync(Website.FileName);
+
+            if (result.Success)
+            {
+                NotificationService.Notify(NotificationSeverity.Success, "Success", "Service restarted successfully");
+                await GetServiceStatus();
+            }
+            else
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Error", result.Error ?? "Failed to restart service");
+            }
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task StopService()
+    {
+        try
+        {
+            isLoading = true;
+            StateHasChanged();
+
+            var result = await ServerService.StopServiceAsync(Website.FileName);
+
+            if (result.Success)
+            {
+                NotificationService.Notify(NotificationSeverity.Success, "Success", "Service stopped successfully");
+                await GetServiceStatus();
+            }
+            else
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Error", result.Error ?? "Failed to stop service");
+            }
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task DisableService()
+    {
+        try
+        {
+            isLoading = true;
+            StateHasChanged();
+
+            var result = await ServerService.DisableServiceAsync(Website.FileName);
+
+            if (result.Success)
+            {
+                NotificationService.Notify(NotificationSeverity.Success, "Success", "Service disabled successfully");
+                await GetServiceStatus();
+            }
+            else
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Error", result.Error ?? "Failed to disable service");
+            }
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task EnableService()
+    {
+        try
+        {
+            isLoading = true;
+            StateHasChanged();
+
+            var result = await ServerService.EnableServiceAsync(Website.FileName);
+
+            if (result.Success)
+            {
+                NotificationService.Notify(NotificationSeverity.Success, "Success", "Service enabled successfully");
+                await GetServiceStatus();
+            }
+            else
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Error", result.Error ?? "Failed to enable service");
+            }
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task StartService()
+    {
+        try
+        {
+            isLoading = true;
+            StateHasChanged();
+
+            var result = await ServerService.StartServiceAsync(Website.FileName);
+
+            if (result.Success)
+            {
+                NotificationService.Notify(NotificationSeverity.Success, "Success", "Service started successfully");
+                await GetServiceStatus();
+            }
+            else
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Error", result.Error ?? "Failed to start service");
+            }
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GetServiceStatus();
+    }
+
+}

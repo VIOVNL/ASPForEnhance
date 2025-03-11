@@ -1,11 +1,11 @@
 using System.Text.Json;
 
-namespace ASPForEnhance
+namespace ASPForEnhance.SshHelper
 {
     public class ServerManager
     {
         private List<ServerInfo> _servers = new List<ServerInfo>();
-        private readonly string _filePath = Path.Combine(Application.StartupPath, "servers.json");
+        private readonly string _filePath = "servers.json";
 
         public List<ServerInfo> Servers => _servers;
 

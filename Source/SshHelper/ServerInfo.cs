@@ -1,6 +1,4 @@
-using System.Text.Json.Serialization;
-
-namespace ASPForEnhance
+namespace ASPForEnhance.SshHelper
 {
     public class ServerInfo
     {
