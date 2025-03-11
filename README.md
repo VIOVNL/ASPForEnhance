@@ -108,5 +108,4 @@ Developed by Viov software development
 - SSH.NET
 
 ## License
-
-© 2025 Viov software development. All rights reserved.
+MIT
