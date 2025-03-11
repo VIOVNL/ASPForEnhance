@@ -31,8 +31,7 @@ For more details on Enhance and its capabilities, visit their official website: 
 ## System Requirements
 
 - Windows operating system
-- .NET 9.0 Runtime
-- Administrative privileges (for some features)
+- Enhance with Apache
 
 ## Installation
 
