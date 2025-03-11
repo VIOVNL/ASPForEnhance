@@ -7,6 +7,12 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationIcon>favicon.ico</ApplicationIcon>
+	  <AssemblyTitle>ASP For Enhance</AssemblyTitle>
+	  <AssemblyDescription>ASP For Enhance.com</AssemblyDescription>
+	  <AssemblyCompany>Viov software development</AssemblyCompany>
+	  <AssemblyProduct>ASPForEnhance</AssemblyProduct>
+	  <AssemblyVersion>1.0.0.0</AssemblyVersion>
+	  <AssemblyFileVersion>1.0.0.0</AssemblyFileVersion>
   </PropertyGroup>
 
   <ItemGroup>
