@@ -21,7 +21,7 @@ jobs:
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: '7.x' # Adjust this to your project’s .NET version
+          dotnet-version: '7.x' # Adjust to your project's .NET version
 
       # 3. Cache NuGet packages for faster builds
       - name: Cache NuGet packages
@@ -89,9 +89,9 @@ jobs:
           Write-Host "Created zip: $zipName"
           echo "zipName=$zipName" >> $env:GITHUB_OUTPUT
 
-      # 8. Upload build artifact (faster than release upload)
+      # 8. Upload build artifact (Fixed version)
       - name: Upload Build Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: build-artifact
           path: ${{ steps.create_zip.outputs.zipName }}
