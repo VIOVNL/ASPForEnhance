@@ -11,19 +11,32 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      # 1. Checkout repository
+      # 1. Checkout repository (fetch only latest commit for speed)
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
-      # 2. Setup MSBuild Path
-      - name: Setup MSBuild Path
-        uses: microsoft/setup-msbuild@v2
+      # 2. Setup .NET 9 SDK
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '9.0.x'
 
-      # 3. Restore NuGet packages
+      # 3. Cache NuGet packages for faster builds
+      - name: Cache NuGet packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      # 4. Restore NuGet packages
       - name: Restore NuGet packages
-        run: nuget restore ASPForEnhance.sln
+        run: dotnet restore ASPForEnhance.sln
 
-      # 4. Update Assembly Version in csproj located in Source/ASPForEnhance.csproj
+      # 5. Update Assembly Version in csproj & Commit Changes
       - name: Update assembly version in csproj
         id: update_version
         shell: pwsh
@@ -37,48 +50,66 @@ jobs:
           $currentVersion = $xml.Project.PropertyGroup.AssemblyVersion
           Write-Host "Current version: $currentVersion"
           
-          # Expecting a version format like: 1.0.0.0
           $versionParts = $currentVersion.Split('.')
           if ($versionParts.Length -ne 4) {
             Write-Error "Unexpected version format: $currentVersion"
             exit 1
           }
-          # Increment the patch (third) number
+          
           $patch = [int]$versionParts[2] + 1
           $versionParts[2] = $patch.ToString()
           $newVersion = $versionParts -join "."
           Write-Host "New version: $newVersion"
           
-          # Update the version elements in the csproj XML
           $xml.Project.PropertyGroup.AssemblyVersion = $newVersion
           $xml.Project.PropertyGroup.AssemblyFileVersion = $newVersion
           $xml.Save($csprojPath)
           
-          # For naming the zip, use the first three segments (e.g. 1.0.1)
           $zipVersion = "$($versionParts[0]).$($versionParts[1]).$($versionParts[2])"
           echo "version=$newVersion" >> $env:GITHUB_OUTPUT
           echo "zipVersion=$zipVersion" >> $env:GITHUB_OUTPUT
 
-      # 5. Build the solution (assumed to be in the root directory)
-      - name: Build solution
-        run: msbuild ASPForEnhance.sln /p:Configuration=Release
+          # Set up Git with PAT authentication using secrets.GitToken
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+          git remote set-url origin https://x-access-token:${{ secrets.GitToken }}@github.com/${{ github.repository }}.git
 
-      # 6. Create zip artifact from the build output in Source/bin/Release
+          git add $csprojPath
+          if (git diff --staged --quiet) {
+            Write-Host "No changes to commit"
+          } else {
+            git commit -m "Auto-incremented version to $newVersion"
+            git push origin main
+          }
+
+      # 6. Publish as self-contained, single-file executable for x64
+      - name: Publish application
+        run: |
+          dotnet publish Source/ASPForEnhance.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish
+
+      # 7. Create zip artifact from the published output
       - name: Create zip artifact
         id: create_zip
         shell: pwsh
         run: |
-          $buildOutput = ".\Source\bin\Release\"
-          if (!(Test-Path $buildOutput)) {
-              Write-Error "Build output folder not found: $buildOutput"
+          $publishOutput = ".\publish\"
+          if (!(Test-Path $publishOutput)) {
+              Write-Error "Published output folder not found: $publishOutput"
               exit 1
           }
           $zipName = "artifact-${{ steps.update_version.outputs.zipVersion }}.zip"
-          Compress-Archive -Path "$buildOutput*" -DestinationPath $zipName
+          Compress-Archive -Path "$publishOutput*" -DestinationPath $zipName
           Write-Host "Created zip: $zipName"
           echo "zipName=$zipName" >> $env:GITHUB_OUTPUT
 
-      # 7. Create a new GitHub Release using the new version as tag and release name.
+      # 8. Upload build artifact (Fixed version)
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifact
+          path: ${{ steps.create_zip.outputs.zipName }}
+
+      # 9. Create a new GitHub Release
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -90,7 +121,7 @@ jobs:
           draft: false
           prerelease: false
 
-      # 8. Upload the versioned zip artifact to the release.
+      # 10. Upload the versioned zip artifact to the release
       - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
         env:
