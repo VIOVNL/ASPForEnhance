@@ -19,7 +19,11 @@ jobs:
       - name: Setup MSBuild Path
         uses: microsoft/setup-msbuild@v2
 
-      # 3. Update Assembly Version in csproj located in Source/ASPForEnhance.csproj
+      # 3. Restore NuGet packages
+      - name: Restore NuGet packages
+        run: nuget restore ASPForEnhance.sln
+
+      # 4. Update Assembly Version in csproj located in Source/ASPForEnhance.csproj
       - name: Update assembly version in csproj
         id: update_version
         shell: pwsh
@@ -55,11 +59,11 @@ jobs:
           echo "version=$newVersion" >> $env:GITHUB_OUTPUT
           echo "zipVersion=$zipVersion" >> $env:GITHUB_OUTPUT
 
-      # 4. Build the solution (assumed to be in the root directory)
+      # 5. Build the solution (assumed to be in the root directory)
       - name: Build solution
         run: msbuild ASPForEnhance.sln /p:Configuration=Release
 
-      # 5. Create zip artifact from the build output in Source/bin/Release
+      # 6. Create zip artifact from the build output in Source/bin/Release
       - name: Create zip artifact
         id: create_zip
         shell: pwsh
@@ -74,7 +78,7 @@ jobs:
           Write-Host "Created zip: $zipName"
           echo "zipName=$zipName" >> $env:GITHUB_OUTPUT
 
-      # 6. Create a new GitHub Release using the new version as tag and release name.
+      # 7. Create a new GitHub Release using the new version as tag and release name.
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -86,7 +90,7 @@ jobs:
           draft: false
           prerelease: false
 
-      # 7. Upload the versioned zip artifact to the release.
+      # 8. Upload the versioned zip artifact to the release.
       - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
         env:
