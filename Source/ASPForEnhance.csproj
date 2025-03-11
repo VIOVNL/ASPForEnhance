@@ -10,8 +10,8 @@
     <AssemblyDescription>ASP For Enhance.com</AssemblyDescription>
     <AssemblyCompany>Viov software development</AssemblyCompany>
     <AssemblyProduct>ASPForEnhance</AssemblyProduct>
-    <AssemblyVersion>1.0.8.0</AssemblyVersion>
-    <AssemblyFileVersion>1.0.8.0</AssemblyFileVersion>
+    <AssemblyVersion>1.0.9.0</AssemblyVersion>
+    <AssemblyFileVersion>1.0.9.0</AssemblyFileVersion>
   </PropertyGroup>
   <ItemGroup>
     <Content Include="favicon.ico" />
