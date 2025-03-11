@@ -57,7 +57,7 @@ jobs:
 
       # 4. Build the solution (assumed to be in the root directory)
       - name: Build solution
-        run: msbuild YourSolution.sln /p:Configuration=Release
+        run: msbuild ASPForEnhance.sln /p:Configuration=Release
 
       # 5. Create zip artifact from the build output in Source/bin/Release
       - name: Create zip artifact
