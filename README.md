@@ -109,4 +109,4 @@ Developed by Viov software development
 
 ## License
 
-© 2024 Viov software development. All rights reserved.
+© 2025 Viov software development. All rights reserved.
