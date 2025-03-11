@@ -69,9 +69,11 @@ jobs:
           echo "version=$newVersion" >> $env:GITHUB_OUTPUT
           echo "zipVersion=$zipVersion" >> $env:GITHUB_OUTPUT
 
-          # Commit and push the version update
+          # Set up Git with PAT authentication using secrets.GitToken
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
+          git remote set-url origin https://x-access-token:${{ secrets.GitToken }}@github.com/${{ github.repository }}.git
+
           git add $csprojPath
           if (git diff --staged --quiet) {
             Write-Host "No changes to commit"
