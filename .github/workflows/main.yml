@@ -13,11 +13,11 @@ jobs:
     steps:
       # 1. Checkout repository
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       # 2. Setup MSBuild Path
       - name: Setup MSBuild Path
-        uses: microsoft/setup-msbuild@v1.1
+        uses: microsoft/setup-msbuild@v2
 
       # 3. Update Assembly Version in csproj located in Source/ASPForEnhance.csproj
       - name: Update assembly version in csproj
