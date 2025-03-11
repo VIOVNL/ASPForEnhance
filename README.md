@@ -90,9 +90,12 @@ Click the settings icon for a website to view detailed information:
 - Apache vhost configurations are created and managed automatically
 - The app monitors resource usage through systemd service status
 
-## Version Information
-
-Current version: 1.0.5.0
+## Screenshots
+[![3qK2Q5P.md.png](https://iili.io/3qK2Q5P.md.png)](https://freeimage.host/i/3qK2Q5P)
+[![3qK2tmF.md.png](https://iili.io/3qK2tmF.md.png)](https://freeimage.host/i/3qK2tmF)
+[![3qK2LdB.md.png](https://iili.io/3qK2LdB.md.png)](https://freeimage.host/i/3qK2LdB)
+[![3qK2Ze1.md.png](https://iili.io/3qK2Ze1.md.png)](https://freeimage.host/i/3qK2Ze1)
+[![3qK2pLJ.md.png](https://iili.io/3qK2pLJ.md.png)](https://freeimage.host/i/3qK2pLJ)
 
 ## Credits
 
