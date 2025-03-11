@@ -2,8 +2,8 @@ using AcrylicUI.Forms;
 using ASPForEnhance.Services;
 using Microsoft.AspNetCore.Components.WebView.WindowsForms;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Web.WebView2.Core;
 using Radzen;
+using System.Reflection;
 
 namespace ASPForEnhance
 {
@@ -13,8 +13,9 @@ namespace ASPForEnhance
         {
             AutoScaleMode = AutoScaleMode.Dpi;
             InitializeComponent();
-            this.MinimumSize = new Size(1600, 1300);
-            this.Size = new Size(2000, 1300);
+            Text = $"ASP for Enhance.com - {GetAssemblyVersion()}";
+            MinimumSize = new Size(1600, 1300);
+            Size = new Size(2000, 1300);
             var services = new ServiceCollection();
             services.AddSingleton<ServerService>();
             services.AddScoped<DialogService>();
@@ -32,6 +33,10 @@ namespace ASPForEnhance
 
         }
 
-      
+        private string GetAssemblyVersion()
+        {
+            var version = Assembly.GetExecutingAssembly().GetName().Version;
+            return version != null ? version.ToString() : "Unknown Version";
+        }
     }
 }
